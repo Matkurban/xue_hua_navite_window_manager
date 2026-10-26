@@ -701,14 +701,18 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
     const int y = args.count(flutter::EncodableValue("y"))
                       ? DipToPhysical(GetDoubleArg(args, "y").value(), scale)
                       : current.top;
-    const int w =
-        args.count(flutter::EncodableValue("width"))
-            ? DipToPhysical(GetDoubleArg(args, "width").value(), scale)
-            : (current.right - current.left);
-    const int h =
-        args.count(flutter::EncodableValue("height"))
-            ? DipToPhysical(GetDoubleArg(args, "height").value(), scale)
-            : (current.bottom - current.top);
+    int w = current.right - current.left;
+    int h = current.bottom - current.top;
+    if (args.count(flutter::EncodableValue("width"))) {
+      const double width = ClampDipAxis(GetDoubleArg(args, "width").value(),
+                                        min_width_dip_, max_width_dip_);
+      w = DipToPhysical(width, scale);
+    }
+    if (args.count(flutter::EncodableValue("height"))) {
+      const double height = ClampDipAxis(GetDoubleArg(args, "height").value(),
+                                         min_height_dip_, max_height_dip_);
+      h = DipToPhysical(height, scale);
+    }
 
     SetWindowPos(hwnd, nullptr, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
     result->Success();
@@ -722,10 +726,12 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
 
   if (method == "setSize") {
     const double scale = GetScaleFactor(hwnd);
-    const int w =
-        DipToPhysical(GetDoubleArg(args, "width").value_or(800.0), scale);
-    const int h =
-        DipToPhysical(GetDoubleArg(args, "height").value_or(600.0), scale);
+    double width = GetDoubleArg(args, "width").value_or(800.0);
+    double height = GetDoubleArg(args, "height").value_or(600.0);
+    ClampDipSize(min_width_dip_, min_height_dip_, max_width_dip_,
+                 max_height_dip_, &width, &height);
+    const int w = DipToPhysical(width, scale);
+    const int h = DipToPhysical(height, scale);
     SetWindowPos(hwnd, nullptr, 0, 0, w, h,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
     result->Success();
@@ -749,10 +755,12 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
     int w = current.right - current.left;
     int h = current.bottom - current.top;
     if (auto width_opt = GetDoubleArg(args, "width")) {
-      w = DipToPhysical(*width_opt, scale);
+      w = DipToPhysical(
+          ClampDipAxis(*width_opt, min_width_dip_, max_width_dip_), scale);
     }
     if (auto height_opt = GetDoubleArg(args, "height")) {
-      h = DipToPhysical(*height_opt, scale);
+      h = DipToPhysical(
+          ClampDipAxis(*height_opt, min_height_dip_, max_height_dip_), scale);
     }
     RECT centered = ComputeCenteredPhysicalRect(hwnd, w, h);
     SetWindowPos(hwnd, nullptr, centered.left, centered.top,
@@ -957,15 +965,13 @@ flutter::EncodableMap XueHuaNaviteWindowManagerPlugin::ConfigureAtomically(
   int target_h = current_rect.bottom - current_rect.top;
 
   if (auto w_dip = GetDoubleArg(args, "width")) {
-    double clamped_w = *w_dip;
-    if (min_width_dip_ > 0.0) clamped_w = std::max(clamped_w, min_width_dip_);
-    if (max_width_dip_ > 0.0) clamped_w = std::min(clamped_w, max_width_dip_);
+    const double clamped_w =
+        ClampDipAxis(*w_dip, min_width_dip_, max_width_dip_);
     target_w = DipToPhysical(clamped_w, scale);
   }
   if (auto h_dip = GetDoubleArg(args, "height")) {
-    double clamped_h = *h_dip;
-    if (min_height_dip_ > 0.0) clamped_h = std::max(clamped_h, min_height_dip_);
-    if (max_height_dip_ > 0.0) clamped_h = std::min(clamped_h, max_height_dip_);
+    const double clamped_h =
+        ClampDipAxis(*h_dip, min_height_dip_, max_height_dip_);
     target_h = DipToPhysical(clamped_h, scale);
   }
 

@@ -51,6 +51,38 @@ TEST(SnapButtonHitTest, ReportsHtMaxButtonOnlyForCustomFrames) {
       ShouldReportSnapButtonHit(true, false, "hidden", empty, 0.0, 10.0));
 }
 
+TEST(SizeClamp, SetSizeHonorsStoredMinimumAndMaximum) {
+  // Repro: setMinimumSize(850, 560) then setSize(500, 400) must not stick.
+  double width = 500.0;
+  double height = 400.0;
+  ClampDipSize(850.0, 560.0, 0.0, 0.0, &width, &height);
+  EXPECT_DOUBLE_EQ(width, 850.0);
+  EXPECT_DOUBLE_EQ(height, 560.0);
+
+  width = 1400.0;
+  height = 900.0;
+  ClampDipSize(0.0, 0.0, 1050.0, 700.0, &width, &height);
+  EXPECT_DOUBLE_EQ(width, 1050.0);
+  EXPECT_DOUBLE_EQ(height, 700.0);
+
+  width = 900.0;
+  height = 640.0;
+  ClampDipSize(850.0, 560.0, 1050.0, 700.0, &width, &height);
+  EXPECT_DOUBLE_EQ(width, 900.0);
+  EXPECT_DOUBLE_EQ(height, 640.0);
+
+  // Unset limits (<= 0) do not move the requested size.
+  width = 100.0;
+  height = 80.0;
+  ClampDipSize(0.0, 0.0, 0.0, 0.0, &width, &height);
+  EXPECT_DOUBLE_EQ(width, 100.0);
+  EXPECT_DOUBLE_EQ(height, 80.0);
+
+  // Minimum wins when the stored maximum is below the minimum.
+  EXPECT_DOUBLE_EQ(ClampDipAxis(50.0, 800.0, 100.0), 800.0);
+  EXPECT_DOUBLE_EQ(ClampDipAxis(50.0, 600.0, 80.0), 600.0);
+}
+
 TEST(XueHuaNaviteWindowManagerPlugin, EnsureInitializedSucceeds) {
   XueHuaNaviteWindowManagerPlugin plugin;
   bool succeeded = false;

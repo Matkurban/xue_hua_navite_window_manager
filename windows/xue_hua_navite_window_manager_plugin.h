@@ -60,6 +60,37 @@ inline bool ShouldReportSnapButtonHit(bool enabled,
   return rect.width > 0.0 && rect.height > 0.0 && rect.Contains(x, y);
 }
 
+/// Clamps one logical axis to stored limits.
+///
+/// A limit `<= 0` is unconstrained. When both are set and `max_value` is
+/// below `min_value`, the minimum wins, matching macOS `configure`.
+/// `SetWindowPos` does not consult `WM_GETMINMAXINFO`, so `setSize` and
+/// `setBounds` must clamp before converting DIP to physical pixels.
+inline double ClampDipAxis(double value, double min_value, double max_value) {
+  if (max_value > 0.0 && value > max_value) {
+    value = max_value;
+  }
+  if (min_value > 0.0 && value < min_value) {
+    value = min_value;
+  }
+  return value;
+}
+
+/// Clamps a DIP width and height. Null axes are left alone.
+inline void ClampDipSize(double min_width,
+                         double min_height,
+                         double max_width,
+                         double max_height,
+                         double* width,
+                         double* height) {
+  if (width != nullptr) {
+    *width = ClampDipAxis(*width, min_width, max_width);
+  }
+  if (height != nullptr) {
+    *height = ClampDipAxis(*height, min_height, max_height);
+  }
+}
+
 /// Production-grade Windows desktop window manager plugin (C++17 / Win32 / DWM).
 ///
 /// Key architecture:

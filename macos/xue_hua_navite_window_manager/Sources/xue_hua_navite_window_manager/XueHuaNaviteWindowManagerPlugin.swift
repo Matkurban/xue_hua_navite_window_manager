@@ -115,6 +115,26 @@ public final class XueHuaNaviteWindowManagerPlugin: NSObject, FlutterPlugin, Flu
         }
     }
 
+    /// Clamps a requested size to the limits `configure` already applies.
+    ///
+    /// AppKit `setFrame` ignores `minSize` / `maxSize`, so `setSize` and
+    /// `setBounds` must clamp before they call it. A non-positive maximum on
+    /// an axis means that axis is unbounded. When both limits are set and the
+    /// maximum is below the minimum, the minimum wins.
+    static func clampedWindowSize(
+        width: CGFloat,
+        height: CGFloat,
+        minSize: CGSize,
+        maxSize: CGSize
+    ) -> CGSize {
+        let maxW = maxSize.width > 0 ? maxSize.width : CGFloat.greatestFiniteMagnitude
+        let maxH = maxSize.height > 0 ? maxSize.height : CGFloat.greatestFiniteMagnitude
+        return CGSize(
+            width: max(minSize.width, min(width, maxW)),
+            height: max(minSize.height, min(height, maxH))
+        )
+    }
+
     // MARK: - Window Resolution & Delegate Attachment
 
     @discardableResult
@@ -196,6 +216,10 @@ public final class XueHuaNaviteWindowManagerPlugin: NSObject, FlutterPlugin, Flu
             result(nil)
 
         case "hide":
+            // orderOut leaves no visible window. Hosts that return true from
+            // applicationShouldTerminateAfterLastWindowClosed (the Flutter
+            // template) quit here, so a later show() never runs. Return false
+            // from that method when hide/show must keep the process alive.
             window.orderOut(nil)
             result(nil)
 
@@ -259,11 +283,17 @@ public final class XueHuaNaviteWindowManagerPlugin: NSObject, FlutterPlugin, Flu
             let width = (args["width"] as? NSNumber)?.doubleValue ?? Double(window.frame.size.width)
             let height = (args["height"] as? NSNumber)?.doubleValue ?? Double(window.frame.size.height)
             let animate = args["animate"] as? Bool ?? false
+            let clamped = Self.clampedWindowSize(
+                width: CGFloat(width),
+                height: CGFloat(height),
+                minSize: window.minSize,
+                maxSize: window.maxSize
+            )
             let cocoaFrame = convertTopLeftToCocoaFrame(
                 x: CGFloat(x),
                 y: CGFloat(y),
-                width: CGFloat(width),
-                height: CGFloat(height),
+                width: clamped.width,
+                height: clamped.height,
                 referenceWindow: window
             )
             window.setFrame(cocoaFrame, display: true, animate: animate)
@@ -277,11 +307,17 @@ public final class XueHuaNaviteWindowManagerPlugin: NSObject, FlutterPlugin, Flu
             let width = CGFloat((args["width"] as? NSNumber)?.doubleValue ?? Double(window.frame.width))
             let height = CGFloat((args["height"] as? NSNumber)?.doubleValue ?? Double(window.frame.height))
             let animate = args["animate"] as? Bool ?? false
+            let clamped = Self.clampedWindowSize(
+                width: width,
+                height: height,
+                minSize: window.minSize,
+                maxSize: window.maxSize
+            )
             var frame = window.frame
             // Preserve top-left corner in screen coordinates when resizing.
             let topY = frame.maxY
-            frame.size = CGSize(width: width, height: height)
-            frame.origin.y = topY - height
+            frame.size = clamped
+            frame.origin.y = topY - clamped.height
             window.setFrame(frame, display: true, animate: animate)
             updateTrafficLightsLayout(in: window)
             result(nil)
@@ -306,7 +342,12 @@ public final class XueHuaNaviteWindowManagerPlugin: NSObject, FlutterPlugin, Flu
             if let w = (args["width"] as? NSNumber)?.doubleValue,
                let h = (args["height"] as? NSNumber)?.doubleValue
             {
-                targetSize = CGSize(width: w, height: h)
+                targetSize = Self.clampedWindowSize(
+                    width: CGFloat(w),
+                    height: CGFloat(h),
+                    minSize: window.minSize,
+                    maxSize: window.maxSize
+                )
             }
             let centeredFrame = computeCenteredFrame(for: window, targetSize: targetSize)
             window.setFrame(centeredFrame, display: true, animate: animate)
@@ -494,9 +535,12 @@ public final class XueHuaNaviteWindowManagerPlugin: NSObject, FlutterPlugin, Flu
         if let w = (args["width"] as? NSNumber)?.doubleValue,
            let h = (args["height"] as? NSNumber)?.doubleValue
         {
-            let clampedW = max(minWidth, min(CGFloat(w), maxWidth > 0 ? maxWidth : CGFloat.greatestFiniteMagnitude))
-            let clampedH = max(minHeight, min(CGFloat(h), maxHeight > 0 ? maxHeight : CGFloat.greatestFiniteMagnitude))
-            targetSize = CGSize(width: clampedW, height: clampedH)
+            targetSize = Self.clampedWindowSize(
+                width: CGFloat(w),
+                height: CGFloat(h),
+                minSize: CGSize(width: minWidth, height: minHeight),
+                maxSize: CGSize(width: maxWidth, height: maxHeight)
+            )
         }
 
         let shouldCenter = args["center"] as? Bool ?? false

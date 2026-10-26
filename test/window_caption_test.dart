@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
@@ -16,6 +17,16 @@ void main() {
     platform.unmaximizeCount = 0;
     platform.maximized = false;
   });
+
+  // flutter test reports TargetPlatform.android unless a variant overrides it.
+  // These cases lock the Windows caption, which is what Linux hosts show too.
+  // A macOS host used to hide those buttons via Platform.isMacOS.
+  final TargetPlatformVariant windowsCaption = TargetPlatformVariant.only(
+    TargetPlatform.windows,
+  );
+  final TargetPlatformVariant macCaption = TargetPlatformVariant.only(
+    TargetPlatform.macOS,
+  );
 
   testWidgets('WindowCaption does not overflow at minimize-sized width', (
     WidgetTester tester,
@@ -41,7 +52,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byIcon(Icons.crop_square), findsOneWidget);
-  });
+  }, variant: windowsCaption);
 
   testWidgets('WindowCaption keeps the title and controls at a normal width', (
     WidgetTester tester,
@@ -57,7 +68,7 @@ void main() {
     expect(find.text('Studio Title'), findsOneWidget);
     expect(find.byTooltip('Minimize'), findsOneWidget);
     expect(find.byTooltip('Close'), findsOneWidget);
-  });
+  }, variant: windowsCaption);
 
   testWidgets('maximize control toggles on tap and on snapButtonClicked', (
     WidgetTester tester,
@@ -72,7 +83,23 @@ void main() {
     await tester.pump();
     expect(platform.maximizeCount, 1);
     expect(platform.maximized, isTrue);
-  });
+  }, variant: windowsCaption);
+
+  testWidgets('WindowCaption hides Windows caption buttons on macOS', (
+    WidgetTester tester,
+  ) async {
+    await _pumpCaption(
+      tester,
+      const Size(960, 44),
+      title: const Text('Studio Title'),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Studio Title'), findsOneWidget);
+    expect(find.byIcon(Icons.crop_square), findsNothing);
+    expect(find.byTooltip('Minimize'), findsNothing);
+    expect(find.byTooltip('Close'), findsNothing);
+  }, variant: macCaption);
 
   testWidgets('SnapLayoutButton onPressed replaces the default toggle', (
     WidgetTester tester,

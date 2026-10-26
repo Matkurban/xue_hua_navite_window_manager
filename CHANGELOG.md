@@ -1,3 +1,9 @@
+## 1.0.4
+
+* **Min/max on programmatic resize:** `setSize`, `setBounds`, and `center(size:)` clamp to the stored minimum and maximum on macOS, Windows, and Linux. AppKit `setFrame` and Win32 `SetWindowPos` ignore those limits, so `setSize(500, 400)` after `setMinimumSize(850, 560)` previously kept 500×400. Linux `configure` now clamps the same way macOS and Windows already did. A non-positive limit leaves that edge open; if both are set and the maximum is below the minimum, the minimum wins.
+* **Caption tests on macOS:** `WindowCaption` selects the macOS layout from Flutter's `defaultTargetPlatform` instead of `Platform.isMacOS`. `window_caption_test.dart` forces the Windows caption, so `flutter test` passes on a macOS host. macOS still hides the Windows-style minimize, maximize, and close buttons.
+* **Example `hide()` on macOS:** the example `AppDelegate` returns false from `applicationShouldTerminateAfterLastWindowClosed`. `hide()` orders the window out, and the Flutter template's `true` quits the process, so `show()` never runs. Hosts that hide the window need the same override (see the README).
+
 ## 1.0.3
 
 * Shorten the package description so it stays within the 60–180 character range pub.dev and search engines display.

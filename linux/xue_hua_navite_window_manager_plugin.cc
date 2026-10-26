@@ -730,6 +730,15 @@ static GtkWindow* get_main_window(XueHuaNaviteWindowManagerPlugin* self) {
   return nullptr;
 }
 
+static XueHuaClampedSize clamp_to_stored_limits(
+    XueHuaNaviteWindowManagerPlugin* self,
+    int width,
+    int height) {
+  return xue_hua_clamp_window_size(width, height, self->min_width,
+                                   self->min_height, self->max_width,
+                                   self->max_height);
+}
+
 static void apply_geometry_hints(XueHuaNaviteWindowManagerPlugin* self,
                                  GtkWindow* window) {
   GdkGeometry geometry{};
@@ -1072,14 +1081,19 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
     gdouble width = 0, height = 0;
     const gboolean has_size = get_double_arg(args, "width", &width) &&
                               get_double_arg(args, "height", &height);
+    gint target_w = 0;
+    gint target_h = 0;
     if (has_size) {
-      gtk_window_resize(window, static_cast<gint>(std::lround(width)),
-                        static_cast<gint>(std::lround(height)));
+      const XueHuaClampedSize clamped = clamp_to_stored_limits(
+          self, static_cast<gint>(std::lround(width)),
+          static_cast<gint>(std::lround(height)));
+      target_w = clamped.width;
+      target_h = clamped.height;
+      gtk_window_resize(window, target_w, target_h);
     }
 
     if (get_bool_arg(args, "center", FALSE)) {
-      center_window(window, has_size ? static_cast<gint>(std::lround(width)) : 0,
-                    has_size ? static_cast<gint>(std::lround(height)) : 0);
+      center_window(window, target_w, target_h);
     } else {
       gdouble x = 0, y = 0;
       if (get_double_arg(args, "x", &x) && get_double_arg(args, "y", &y)) {
@@ -1162,8 +1176,10 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
     }
     if (get_double_arg(args, "width", &w) &&
         get_double_arg(args, "height", &h)) {
-      gtk_window_resize(window, static_cast<gint>(std::lround(w)),
-                        static_cast<gint>(std::lround(h)));
+      const XueHuaClampedSize clamped = clamp_to_stored_limits(
+          self, static_cast<gint>(std::lround(w)),
+          static_cast<gint>(std::lround(h)));
+      gtk_window_resize(window, clamped.width, clamped.height);
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "getBounds") == 0) {
@@ -1173,8 +1189,10 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
     gdouble w = 800, h = 600;
     get_double_arg(args, "width", &w);
     get_double_arg(args, "height", &h);
-    gtk_window_resize(window, static_cast<gint>(std::lround(w)),
-                      static_cast<gint>(std::lround(h)));
+    const XueHuaClampedSize clamped = clamp_to_stored_limits(
+        self, static_cast<gint>(std::lround(w)),
+        static_cast<gint>(std::lround(h)));
+    gtk_window_resize(window, clamped.width, clamped.height);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "setPosition") == 0) {
     gdouble x = 0, y = 0;
@@ -1189,8 +1207,11 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
     gint target_h = 0;
     if (get_double_arg(args, "width", &w) &&
         get_double_arg(args, "height", &h)) {
-      target_w = static_cast<gint>(std::lround(w));
-      target_h = static_cast<gint>(std::lround(h));
+      const XueHuaClampedSize clamped = clamp_to_stored_limits(
+          self, static_cast<gint>(std::lround(w)),
+          static_cast<gint>(std::lround(h)));
+      target_w = clamped.width;
+      target_h = clamped.height;
     }
     const bool applied = center_window(window, target_w, target_h);
     g_autoptr(FlValue) applied_value = fl_value_new_bool(applied);
