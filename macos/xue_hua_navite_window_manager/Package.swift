@@ -6,23 +6,23 @@ import PackageDescription
 let package = Package(
     name: "xue_hua_navite_window_manager",
     platforms: [
-        .macOS("12.0")
+        .macOS("12.0"),
     ],
     products: [
-        .library(name: "xue-hua-navite-window-manager", targets: ["xue_hua_navite_window_manager"])
+        .library(name: "xue-hua-navite-window-manager", targets: ["xue_hua_navite_window_manager"]),
     ],
     dependencies: [
-        .package(name: "FlutterFramework", path: "../FlutterFramework")
+        .package(name: "FlutterFramework", path: "../FlutterFramework"),
     ],
     targets: [
         .target(
             name: "xue_hua_navite_window_manager",
             dependencies: [
-                .product(name: "FlutterFramework", package: "FlutterFramework")
+                .product(name: "FlutterFramework", package: "FlutterFramework"),
             ],
             resources: [
-                .process("PrivacyInfo.xcprivacy")
+                .process("PrivacyInfo.xcprivacy"),
             ]
-        )
+        ),
     ]
 )

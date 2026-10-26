@@ -7,6 +7,9 @@ import 'package:xue_hua_navite_window_manager/xue_hua_navite_window_manager.dart
 /// Interactive workbench demonstrating atomic configuration, custom frameless caption,
 /// macOS Traffic Lights offset slider, Windows 11 Snap Layouts (`HTMAXBUTTON`),
 /// 8-edge programmatic resizing, and real-time `WindowListener` event logs.
+///
+/// All colors and typography in this dashboard are driven exclusively by the
+/// active [ThemeData] (`Theme.of(context).colorScheme` and `Theme.of(context).textTheme`).
 class WindowStudioDashboard extends StatefulWidget {
   const WindowStudioDashboard({super.key});
 
@@ -28,7 +31,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
   bool _preventClose = true;
   bool _hasShadow = true;
   double _opacity = 1.0;
-  Color _bgColor = const Color(0xFF141622);
+  Color? _selectedBackgroundColor;
 
   Rect _currentBounds = const Rect.fromLTWH(0, 0, 1240, 820);
   bool _isMaximized = false;
@@ -191,30 +194,39 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
     if (!mounted) return;
     final bool? shouldDestroy = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
+        final ThemeData dialogTheme = Theme.of(dialogContext);
+        final ColorScheme dialogColorScheme = dialogTheme.colorScheme;
+        final TextTheme dialogTextTheme = dialogTheme.textTheme;
+
         return AlertDialog(
-          title: const Text('Intercepted Window Close'),
-          content: const Text(
+          title: Text(
+            'Intercepted Window Close',
+            style: dialogTextTheme.titleLarge,
+          ),
+          content: Text(
             'Native WM_CLOSE / windowShouldClose / delete-event was intercepted '
             'because preventClose is enabled. Do you want to force-destroy the window?',
+            style: dialogTextTheme.bodyMedium,
           ),
           actions: <Widget>[
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text('Keep Open'),
             ),
             FilledButton.tonal(
               onPressed: () async {
-                Navigator.of(context).pop(false);
+                Navigator.of(dialogContext).pop(false);
                 await _windowManager.minimize();
               },
               child: const Text('Minimize Instead'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFEF4444),
+                backgroundColor: dialogColorScheme.error,
+                foregroundColor: dialogColorScheme.onError,
               ),
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
               child: const Text('Force Destroy'),
             ),
           ],
@@ -230,8 +242,13 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+    final Color activeBgColor =
+        _selectedBackgroundColor ?? theme.scaffoldBackgroundColor;
+
     return Scaffold(
-      backgroundColor: _bgColor,
+      backgroundColor: activeBgColor,
       body: WindowResizeEdgeArea(
         enabled: _resizable && !_isMaximized && !_isFullScreen,
         child: Column(
@@ -243,17 +260,20 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   _trafficLightsVisible && !_isFullScreen
                   ? (_trafficLightsX + 68.0)
                   : 12.0,
-              backgroundColor: theme.scaffoldBackgroundColor,
-              foregroundColor: theme.colorScheme.secondary,
+              backgroundColor: colorScheme.surfaceContainer,
+              foregroundColor: colorScheme.onSurface,
               title: Row(
                 children: <Widget>[
-                  const Icon(
+                  Icon(
                     Icons.desktop_windows_rounded,
                     size: 18,
-                    color: Color(0xFF818CF8),
+                    color: colorScheme.primary,
                   ),
                   const SizedBox(width: 10),
-                  const Text('XueHua Native Window Manager Studio'),
+                  Text(
+                    'XueHua Native Window Manager Studio',
+                    style: textTheme.titleSmall,
+                  ),
                   const SizedBox(width: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -262,18 +282,16 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                     ),
                     decoration: BoxDecoration(
                       color: _isFocused
-                          ? const Color(0xFF6366F1).withValues(alpha: 0.2)
-                          : Colors.white10,
+                          ? colorScheme.primaryContainer
+                          : colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       _isFocused ? 'ACTIVE' : 'BLURRED',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                      style: textTheme.labelSmall?.copyWith(
                         color: _isFocused
-                            ? const Color(0xFFA5B4FC)
-                            : Colors.white54,
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -282,7 +300,11 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
               actions: <Widget>[
                 IconButton(
                   tooltip: 'Center Window (1240x820)',
-                  icon: const Icon(Icons.filter_center_focus, size: 18),
+                  icon: Icon(
+                    Icons.filter_center_focus,
+                    size: 18,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                   onPressed: () => _windowManager.center(
                     size: const Size(1240, 820),
                     animate: true,
@@ -295,13 +317,14 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                         ? Icons.fullscreen_exit_rounded
                         : Icons.fullscreen_rounded,
                     size: 20,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   onPressed: () => _windowManager.setFullScreen(!_isFullScreen),
                 ),
                 const SizedBox(width: 4),
               ],
             ),
-            const Divider(height: 1, color: Colors.white12),
+            Divider(height: 1, color: theme.dividerColor),
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -313,21 +336,24 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          _buildStatusTelemetryCard(),
+                          _buildStatusTelemetryCard(context),
                           const SizedBox(height: 16),
-                          _buildAtomicPresetsCard(),
+                          _buildAtomicPresetsCard(context),
                           const SizedBox(height: 16),
-                          _buildTitleBarAndTrafficLightsCard(),
+                          _buildTitleBarAndTrafficLightsCard(context),
                           const SizedBox(height: 16),
-                          _buildBehaviorAndAppearanceCard(),
+                          _buildBehaviorAndAppearanceCard(
+                            context,
+                            activeBgColor,
+                          ),
                           const SizedBox(height: 16),
-                          _buildDragAndEdgeResizeCard(),
+                          _buildDragAndEdgeResizeCard(context),
                         ],
                       ),
                     ),
                   ),
-                  const VerticalDivider(width: 1, color: Colors.white12),
-                  Expanded(flex: 4, child: _buildEventStreamPanel()),
+                  VerticalDivider(width: 1, color: theme.dividerColor),
+                  Expanded(flex: 4, child: _buildEventStreamPanel(context)),
                 ],
               ),
             ),
@@ -337,7 +363,11 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
     );
   }
 
-  Widget _buildStatusTelemetryCard() {
+  Widget _buildStatusTelemetryCard(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -347,11 +377,11 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
           children: <Widget>[
             Row(
               children: <Widget>[
-                const Icon(Icons.speed_rounded, color: Color(0xFF818CF8)),
+                Icon(Icons.speed_rounded, color: colorScheme.primary),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Live Window Geometry & State Telemetry',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: textTheme.titleMedium,
                 ),
                 const Spacer(),
                 TextButton.icon(
@@ -367,17 +397,32 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
               runSpacing: 10,
               children: <Widget>[
                 _buildMetricBadge(
+                  context,
                   'Size (DIP)',
                   '${_currentBounds.width.toStringAsFixed(0)} × ${_currentBounds.height.toStringAsFixed(0)}',
                 ),
                 _buildMetricBadge(
+                  context,
                   'Position (DIP)',
                   '(${_currentBounds.left.toStringAsFixed(0)}, ${_currentBounds.top.toStringAsFixed(0)})',
                 ),
-                _buildMetricBadge('Maximized', _isMaximized ? 'YES' : 'NO'),
-                _buildMetricBadge('Minimized', _isMinimized ? 'YES' : 'NO'),
-                _buildMetricBadge('FullScreen', _isFullScreen ? 'YES' : 'NO'),
                 _buildMetricBadge(
+                  context,
+                  'Maximized',
+                  _isMaximized ? 'YES' : 'NO',
+                ),
+                _buildMetricBadge(
+                  context,
+                  'Minimized',
+                  _isMinimized ? 'YES' : 'NO',
+                ),
+                _buildMetricBadge(
+                  context,
+                  'FullScreen',
+                  _isFullScreen ? 'YES' : 'NO',
+                ),
+                _buildMetricBadge(
+                  context,
                   'Snap Hover',
                   _snapButtonHovered ? 'HTMAXBUTTON' : 'IDLE',
                 ),
@@ -389,13 +434,17 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
     );
   }
 
-  Widget _buildMetricBadge(String label, String value) {
+  Widget _buildMetricBadge(BuildContext context, String label, String value) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black26,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -403,23 +452,25 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
         children: <Widget>[
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: Colors.white54),
+            style: textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+            style: textTheme.titleSmall?.copyWith(color: colorScheme.onSurface),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAtomicPresetsCard() {
+  Widget _buildAtomicPresetsCard(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -427,15 +478,17 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
+            Text(
               '1. Atomic Batch Configuration (Single-Channel Zero-Jump Presets)',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              style: textTheme.titleMedium,
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Applies size, min/max constraints, centering, titleBarStyle, trafficLightsOffset, '
               'and backgroundColor in one atomic native transaction.',
-              style: TextStyle(fontSize: 12, color: Colors.white70),
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -444,16 +497,16 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
               children: <Widget>[
                 FilledButton.icon(
                   onPressed: () async {
-                    const Color bg = Color(0xFF141622);
+                    final Color bg = theme.scaffoldBackgroundColor;
                     final WindowStateSnapshot snap =
                         await XueHuaNaviteWindowManager.configure(
-                          const WindowConfig(
-                            size: Size(1280, 820),
-                            minSize: Size(860, 580),
+                          WindowConfig(
+                            size: const Size(1280, 820),
+                            minSize: const Size(860, 580),
                             center: true,
                             title: 'Studio Default (1280×820 Centered)',
                             titleBarStyle: TitleBarStyle.hidden,
-                            trafficLightsOffset: Offset(16, 14),
+                            trafficLightsOffset: const Offset(16, 14),
                             trafficLightsVisible: true,
                             backgroundColor: bg,
                             preventClose: true,
@@ -461,7 +514,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                           ),
                         );
                     setState(() {
-                      _bgColor = bg;
+                      _selectedBackgroundColor = bg;
                       _titleBarStyle = TitleBarStyle.hidden;
                       _trafficLightsX = 16;
                       _trafficLightsY = 14;
@@ -475,16 +528,16 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                 ),
                 FilledButton.tonalIcon(
                   onPressed: () async {
-                    const Color bg = Color(0xFF0F172A);
+                    final Color bg = colorScheme.surfaceContainerLowest;
                     final WindowStateSnapshot snap =
                         await XueHuaNaviteWindowManager.configure(
-                          const WindowConfig(
-                            size: Size(980, 660),
-                            minSize: Size(720, 480),
+                          WindowConfig(
+                            size: const Size(980, 660),
+                            minSize: const Size(720, 480),
                             center: true,
                             title: 'Compact Immersive Mode',
                             titleBarStyle: TitleBarStyle.immersive,
-                            trafficLightsOffset: Offset(22, 18),
+                            trafficLightsOffset: const Offset(22, 18),
                             trafficLightsVisible: true,
                             backgroundColor: bg,
                             alwaysOnTop: false,
@@ -492,7 +545,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                           ),
                         );
                     setState(() {
-                      _bgColor = bg;
+                      _selectedBackgroundColor = bg;
                       _titleBarStyle = TitleBarStyle.immersive;
                       _trafficLightsX = 22;
                       _trafficLightsY = 18;
@@ -534,7 +587,10 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
     );
   }
 
-  Widget _buildTitleBarAndTrafficLightsCard() {
+  Widget _buildTitleBarAndTrafficLightsCard(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final TextTheme textTheme = theme.textTheme;
+
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -542,14 +598,14 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
+            Text(
               '2. Custom Frame & macOS Traffic Lights Offset Controller',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              style: textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
             Row(
               children: <Widget>[
-                const Text('TitleBarStyle: '),
+                Text('TitleBarStyle: ', style: textTheme.bodyMedium),
                 const SizedBox(width: 12),
                 SegmentedButton<TitleBarStyle>(
                   segments: const <ButtonSegment<TitleBarStyle>>[
@@ -592,7 +648,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                     children: <Widget>[
                       Text(
                         'macOS Traffic Lights X Offset: ${_trafficLightsX.toStringAsFixed(0)} pt',
-                        style: const TextStyle(fontSize: 12),
+                        style: textTheme.labelMedium,
                       ),
                       Slider(
                         value: _trafficLightsX,
@@ -616,7 +672,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                     children: <Widget>[
                       Text(
                         'macOS Traffic Lights Y Offset: ${_trafficLightsY.toStringAsFixed(0)} pt',
-                        style: const TextStyle(fontSize: 12),
+                        style: textTheme.labelMedium,
                       ),
                       Slider(
                         value: _trafficLightsY,
@@ -638,9 +694,13 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
             if (_isMacOS)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Show macOS Traffic Light Buttons'),
-                subtitle: const Text(
+                title: Text(
+                  'Show macOS Traffic Light Buttons',
+                  style: textTheme.bodyMedium,
+                ),
+                subtitle: Text(
                   'Dynamically toggle close / miniaturize / zoom button visibility',
+                  style: textTheme.bodySmall,
                 ),
                 value: _trafficLightsVisible,
                 onChanged: (bool value) {
@@ -654,7 +714,14 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
     );
   }
 
-  Widget _buildBehaviorAndAppearanceCard() {
+  Widget _buildBehaviorAndAppearanceCard(
+    BuildContext context,
+    Color activeBgColor,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -662,9 +729,9 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
+            Text(
               '3. Window Behavior, DWM Shadow & Anti-Tearing Background Sync',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              style: textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -712,7 +779,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
             const SizedBox(height: 12),
             Row(
               children: <Widget>[
-                const Text('Window Opacity: ', style: TextStyle(fontSize: 12)),
+                Text('Window Opacity: ', style: textTheme.labelMedium),
                 Expanded(
                   child: Slider(
                     value: _opacity,
@@ -724,7 +791,10 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                     },
                   ),
                 ),
-                Text('${(_opacity * 100).toStringAsFixed(0)}%'),
+                Text(
+                  '${(_opacity * 100).toStringAsFixed(0)}%',
+                  style: textTheme.labelMedium,
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -733,15 +803,29 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
               runSpacing: 10,
               children: <Widget>[
                 _buildColorSwatchButton(
-                  'Midnight Indigo',
-                  const Color(0xFF141622),
+                  context,
+                  'Theme Surface',
+                  theme.scaffoldBackgroundColor,
+                  activeBgColor,
                 ),
-                _buildColorSwatchButton('Deep Slate', const Color(0xFF0F172A)),
                 _buildColorSwatchButton(
-                  'Obsidian Carbon',
-                  const Color(0xFF18181B),
+                  context,
+                  'Surface Container Low',
+                  colorScheme.surfaceContainerLow,
+                  activeBgColor,
                 ),
-                _buildColorSwatchButton('Forest Pine', const Color(0xFF062019)),
+                _buildColorSwatchButton(
+                  context,
+                  'Surface Container High',
+                  colorScheme.surfaceContainerHigh,
+                  activeBgColor,
+                ),
+                _buildColorSwatchButton(
+                  context,
+                  'Secondary Container',
+                  colorScheme.secondaryContainer,
+                  activeBgColor,
+                ),
               ],
             ),
           ],
@@ -750,11 +834,20 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
     );
   }
 
-  Widget _buildColorSwatchButton(String label, Color color) {
-    final bool isSelected = _bgColor.toARGB32() == color.toARGB32();
+  Widget _buildColorSwatchButton(
+    BuildContext context,
+    String label,
+    Color color,
+    Color activeBgColor,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+    final bool isSelected = activeBgColor.toARGB32() == color.toARGB32();
+
     return OutlinedButton.icon(
       onPressed: () {
-        setState(() => _bgColor = color);
+        setState(() => _selectedBackgroundColor = color);
         _windowManager.setBackgroundColor(color);
         _appendLog('setBackgroundColor($label)');
       },
@@ -764,17 +857,21 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white54),
+          border: Border.all(color: colorScheme.outline),
         ),
       ),
       label: Text(
         isSelected ? '$label ✓' : label,
-        style: const TextStyle(fontSize: 12),
+        style: textTheme.labelMedium,
       ),
     );
   }
 
-  Widget _buildDragAndEdgeResizeCard() {
+  Widget _buildDragAndEdgeResizeCard(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -782,9 +879,9 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            const Text(
+            Text(
               '4. Native Drag Area, Lifecycle Actions & 8-Direction Resizing',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              style: textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
             DragArea(
@@ -793,20 +890,30 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: <Color>[Color(0xFF312E81), Color(0xFF1E1B4B)],
+                  gradient: LinearGradient(
+                    colors: <Color>[
+                      colorScheme.primaryContainer,
+                      colorScheme.secondaryContainer,
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF6366F1)),
+                  border: Border.all(color: colorScheme.primary),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
-                    Icon(Icons.open_with_rounded, color: Colors.white),
-                    SizedBox(width: 10),
-                    Text(
-                      'Custom DragArea Widget — Press & Drag Anywhere Here (Double-Click to Maximize)',
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    Icon(
+                      Icons.open_with_rounded,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'Custom DragArea Widget — Press & Drag Anywhere Here (Double-Click to Maximize)',
+                        style: textTheme.labelLarge?.copyWith(
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -845,40 +952,43 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
     );
   }
 
-  Widget _buildEventStreamPanel() {
+  Widget _buildEventStreamPanel(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+
     return Container(
-      color: const Color(0xFF10121C),
+      color: colorScheme.surfaceContainerLow,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Row(
             children: <Widget>[
-              const Icon(
+              Icon(
                 Icons.terminal_rounded,
                 size: 18,
-                color: Color(0xFF34D399),
+                color: colorScheme.primary,
               ),
               const SizedBox(width: 8),
-              const Text(
-                'Native EventChannel Stream',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
+              Text('Native EventChannel Stream', style: textTheme.titleSmall),
               const Spacer(),
               TextButton(
                 onPressed: () => setState(_eventLogs.clear),
-                child: const Text('Clear', style: TextStyle(fontSize: 12)),
+                child: Text('Clear', style: textTheme.labelMedium),
               ),
             ],
           ),
-          const Divider(color: Colors.white12),
+          Divider(color: theme.dividerColor),
           Expanded(
             child: _eventLogs.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text(
                       'Move, resize, maximize, focus, or click close to inspect real-time native events.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white38, fontSize: 12),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -888,10 +998,8 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                         padding: const EdgeInsets.symmetric(vertical: 3),
                         child: Text(
                           _eventLogs[index],
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 11.5,
-                            color: Color(0xFFA7F3D0),
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.primary,
                           ),
                         ),
                       );
