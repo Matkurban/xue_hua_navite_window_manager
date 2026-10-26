@@ -1,3 +1,9 @@
+## 1.0.1
+
+* **Wayland drag**: `DragArea` and `WindowResizeEdgeArea` register their layout rects, and the Linux GDK filter calls `gtk_window_begin_move_drag` / `gtk_window_begin_resize_drag` inside the button-press event. GTK3 Wayland ignores the timestamp argument and sends the seat's implicit-grab serial, which compositors generally accept only during that dispatch. X11 still uses the async method-channel path, including the `GDK_CURRENT_TIME` fallback.
+* **Wayland center**: an unmapped window still gets `GTK_WIN_POS_CENTER` before the first map (a hint the compositor may ignore). A mapped Wayland window is not moved — `xdg-shell` does not allow client absolute positions — and `center()` returns false instead of reporting a position GTK only cached. `WindowStateSnapshot.isPositionAuthoritative` is false on Wayland.
+* A bare `startDragging()` / `startResizing()` call that arrives after the press is still best-effort on Wayland and is skipped when no button serial was captured.
+
 ## 1.0.0
 
 * Initial production release of `xue_hua_navite_window_manager`.

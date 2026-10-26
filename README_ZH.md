@@ -2,7 +2,7 @@
 
 [English](./README.md) | 简体中文
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
 [![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.47.0-02569B.svg)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-%5E3.13.0-0175C2.svg)](https://dart.dev)
 [![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-success.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
@@ -16,7 +16,7 @@
 3. **深度无边框与原生系统特性保留（Custom Frame & Native Feel）**：
    - **Windows 端（C++17 / Win32 Subclassing / DWM）**：通过 `SetWindowSubclass` 挂载自定义窗口过程，拦截 `WM_NCCALCSIZE` 移除系统标题栏；调用 `DwmExtendFrameIntoClientArea` 与 `DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND)` 完整保留 **Windows 11 原生圆角与系统阴影**；拦截 `WM_NCHITTEST` 实现 6~8px DPI 自适应八向缩放热区，并支持将 Dart 层的最大化按钮注册为 `HTMAXBUTTON`，完美触发 **Windows 11 Snap Layouts（悬停分屏菜单）**；拦截 `WM_GETMINMAXINFO` 在原生消息循环层强制约束最小/最大尺寸，丝滑无抖动。
    - **macOS 端（Swift 5.9+ / AppKit / SPM）**：原生支持 **Swift Package Manager (`Package.swift`)**，支持 `.fullSizeContentView` 沉浸式无边框标题栏，内置**红绿灯按钮（Traffic Lights）偏移控制器**，支持动态调整 `(x, y)` 偏移量并在窗口缩放、最小化恢复、全屏进出时自动保持位置不乱跳。
-   - **Linux 端（C / GTK3）**：支持无边框修饰切换、`GdkGeometry` 最小/最大尺寸约束，以及原生级窗口拖拽与八向边缘拉伸。
+   - **Linux 端（C / GTK3）**：支持无边框修饰切换、`GdkGeometry` 最小/最大尺寸约束，以及原生级窗口拖拽与八向边缘拉伸。Wayland 在按钮按下事件内发起拖动，详见 [Linux X11 与 Wayland](#linux-x11-与-wayland)。
 
 ---
 
@@ -32,10 +32,29 @@
 | macOS 红绿灯按钮 `(x, y)` 坐标偏移与显隐控制 | ✅ | N/A | N/A |
 | 原生消息循环级 `minSize` / `maxSize` 约束 | ✅ | ✅ (`WM_GETMINMAXINFO`) | ✅ (`GdkGeometry`) |
 | 关闭窗口拦截 (`preventClose` + `destroy()`) | ✅ (`windowShouldClose`) | ✅ (`WM_CLOSE`) | ✅ (`delete-event`) |
-| 原生高性能窗口拖拽 (`startDragging` / `DragArea`) | ✅ | ✅ | ✅ |
-| 原生八向边缘缩放 (`startResizing`) | ✅ | ✅ | ✅ |
+| 原生高性能窗口拖拽 (`startDragging` / `DragArea`) | ✅ | ✅ | ✅ X11，✅ Wayland（`DragArea`） |
+| 原生八向边缘缩放 (`startResizing`) | ✅ | ✅ | ✅ X11，✅ Wayland（`WindowResizeEdgeArea`） |
+| 在当前显示器居中 | ✅ | ✅ | ✅ X11，Wayland 尽力而为（见下） |
 
 ---
+
+## Linux X11 与 Wayland
+
+`DragArea` 与 `WindowResizeEdgeArea` 会在点击前把布局矩形交给原生层。GDK 事件过滤器在按下时做命中测试。
+
+| | X11（含 XWayland） | Wayland（`gdk_display_get_name` 以 `wayland` 开头） |
+| :--- | :--- | :--- |
+| `DragArea` 拖动 | 异步 `startDragging()` → `gtk_window_begin_move_drag`。优先使用捕获到的按钮时间，没有则回退 `GDK_CURRENT_TIME`。 | 在按钮按下的 GDK filter **内部**同步调用 `gtk_window_begin_move_drag`，不等 MethodChannel 返回。GTK 3 在 Wayland 上会忽略传入的 timestamp，改发 seat 的 implicit-grab serial。Mutter、KWin、wlroots 在该 serial 仍是按下抓取时接受 `xdg_toplevel.move`。 |
+| `WindowResizeEdgeArea` | 异步 `gtk_window_begin_resize_drag`，时间戳规则相同。 | 与拖动相同的同步路径。最大化或不可调整大小的窗口不会从 filter 里开始缩放。 |
+| 没有注册矩形时调用 `startDragging()` / `startResizing()` | 可用，包括 `GDK_CURRENT_TIME` 回退。 | 仅尽力而为。若这次按下没有在 filter 里启动，且捕获到了按钮 serial，仍会再试一次；没有 serial 则跳过。按钮已经松开后再调用，合成器不会移动窗口。 |
+| `DragArea` 双击最大化 | Flutter 手势，行为不变。 | Flutter 手势，行为不变。若合成器的移动抓取吃掉第二次点击，双击不会触发。这种情况不会被伪装成成功。 |
+| 窗口尚未 map 时 `center()` | `GTK_WIN_POS_CENTER`，map 时生效。返回 true。 | 同样设置该 hint。返回 **false**：xdg-shell 不保证合成器会采用。 |
+| 窗口已经 map 时 `center()` | 按工作区计算坐标并 `gtk_window_move`（与 Windows 相同的整数除法）。返回 true。 | 不调用 `gtk_window_move`。协议不允许客户端设置绝对位置，调用只会改 GTK 缓存。返回 false，不会崩溃。 |
+| 读到的原点（`getBounds` / `getState`） | 可信。 | `isPositionAuthoritative` 为 false。数值可能是 `0,0`，或 GTK 里过期的缓存。 |
+
+Wayland 上没有能移动已 map 顶层窗口的 portal 或 GTK 3 API。Layer-shell 面向面板而不是应用窗口，本插件不使用它。
+
+Wayland 上不要把按钮放进 `DragArea` 的子树：按下会按整块矩形开始移动窗口。按钮应放在拖动区域旁边，`WindowCaption` 就是这样做的。
 
 ## 安装与集成
 

@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
+import '../linux_interactive_region.dart';
 import '../window_enums.dart';
 import '../xue_hua_navite_window_manager_controller.dart';
 
@@ -39,7 +40,10 @@ class WindowResizeEdgeArea extends StatelessWidget {
           left: corner,
           right: corner,
           height: edgeThickness,
-          child: _buildEdge(ResizeEdge.top, SystemMouseCursors.resizeUpDown),
+          child: const _ResizeEdgeHitTarget(
+            edge: ResizeEdge.top,
+            cursor: SystemMouseCursors.resizeUpDown,
+          ),
         ),
         // Bottom edge
         Positioned(
@@ -47,7 +51,10 @@ class WindowResizeEdgeArea extends StatelessWidget {
           left: corner,
           right: corner,
           height: edgeThickness,
-          child: _buildEdge(ResizeEdge.bottom, SystemMouseCursors.resizeUpDown),
+          child: const _ResizeEdgeHitTarget(
+            edge: ResizeEdge.bottom,
+            cursor: SystemMouseCursors.resizeUpDown,
+          ),
         ),
         // Left edge
         Positioned(
@@ -55,9 +62,9 @@ class WindowResizeEdgeArea extends StatelessWidget {
           bottom: corner,
           left: 0,
           width: edgeThickness,
-          child: _buildEdge(
-            ResizeEdge.left,
-            SystemMouseCursors.resizeLeftRight,
+          child: const _ResizeEdgeHitTarget(
+            edge: ResizeEdge.left,
+            cursor: SystemMouseCursors.resizeLeftRight,
           ),
         ),
         // Right edge
@@ -66,9 +73,9 @@ class WindowResizeEdgeArea extends StatelessWidget {
           bottom: corner,
           right: 0,
           width: edgeThickness,
-          child: _buildEdge(
-            ResizeEdge.right,
-            SystemMouseCursors.resizeLeftRight,
+          child: const _ResizeEdgeHitTarget(
+            edge: ResizeEdge.right,
+            cursor: SystemMouseCursors.resizeLeftRight,
           ),
         ),
         // Top-Left corner
@@ -77,9 +84,9 @@ class WindowResizeEdgeArea extends StatelessWidget {
           left: 0,
           width: corner,
           height: corner,
-          child: _buildEdge(
-            ResizeEdge.topLeft,
-            SystemMouseCursors.resizeUpLeftDownRight,
+          child: const _ResizeEdgeHitTarget(
+            edge: ResizeEdge.topLeft,
+            cursor: SystemMouseCursors.resizeUpLeftDownRight,
           ),
         ),
         // Top-Right corner
@@ -88,9 +95,9 @@ class WindowResizeEdgeArea extends StatelessWidget {
           right: 0,
           width: corner,
           height: corner,
-          child: _buildEdge(
-            ResizeEdge.topRight,
-            SystemMouseCursors.resizeUpRightDownLeft,
+          child: const _ResizeEdgeHitTarget(
+            edge: ResizeEdge.topRight,
+            cursor: SystemMouseCursors.resizeUpRightDownLeft,
           ),
         ),
         // Bottom-Left corner
@@ -99,9 +106,9 @@ class WindowResizeEdgeArea extends StatelessWidget {
           left: 0,
           width: corner,
           height: corner,
-          child: _buildEdge(
-            ResizeEdge.bottomLeft,
-            SystemMouseCursors.resizeUpRightDownLeft,
+          child: const _ResizeEdgeHitTarget(
+            edge: ResizeEdge.bottomLeft,
+            cursor: SystemMouseCursors.resizeUpRightDownLeft,
           ),
         ),
         // Bottom-Right corner
@@ -110,23 +117,55 @@ class WindowResizeEdgeArea extends StatelessWidget {
           right: 0,
           width: corner,
           height: corner,
-          child: _buildEdge(
-            ResizeEdge.bottomRight,
-            SystemMouseCursors.resizeUpLeftDownRight,
+          child: const _ResizeEdgeHitTarget(
+            edge: ResizeEdge.bottomRight,
+            cursor: SystemMouseCursors.resizeUpLeftDownRight,
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildEdge(ResizeEdge edge, MouseCursor cursor) {
+class _ResizeEdgeHitTarget extends StatefulWidget {
+  final ResizeEdge edge;
+  final MouseCursor cursor;
+
+  const _ResizeEdgeHitTarget({required this.edge, required this.cursor});
+
+  @override
+  State<_ResizeEdgeHitTarget> createState() => _ResizeEdgeHitTargetState();
+}
+
+class _ResizeEdgeHitTargetState extends State<_ResizeEdgeHitTarget> {
+  late final LinuxInteractiveRegionBinding _region;
+
+  @override
+  void initState() {
+    super.initState();
+    _region = LinuxInteractiveRegionBinding(
+      XueHuaNaviteWindowManager.allocateLinuxInteractiveRegionId(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _region.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Wayland begins the resize from this rect inside the button-press filter.
+    // X11 ignores the rect and keeps the async startResizing path below.
+    _region.schedule(context, kind: widget.edge.wireValue);
     return MouseRegion(
-      cursor: cursor,
+      cursor: widget.cursor,
       child: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (PointerDownEvent event) {
           if (event.buttons == kPrimaryMouseButton) {
-            XueHuaNaviteWindowManager.instance.startResizing(edge);
+            XueHuaNaviteWindowManager.instance.startResizing(widget.edge);
           }
         },
         child: const SizedBox.expand(),

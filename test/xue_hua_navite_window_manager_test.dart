@@ -66,7 +66,15 @@ class MockXueHuaNaviteWindowManagerPlatform
   Future<void> blur() async {}
 
   @override
-  Future<void> center({Size? size, bool animate = false}) async {}
+  Future<bool> center({Size? size, bool animate = false}) async => true;
+
+  @override
+  Future<void> setLinuxInteractiveRegion({
+    required int id,
+    required bool present,
+    String kind = 'move',
+    Rect? rect,
+  }) async {}
 
   @override
   Future<void> close() async {}

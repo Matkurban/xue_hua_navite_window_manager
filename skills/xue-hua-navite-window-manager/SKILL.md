@@ -23,6 +23,7 @@ Provide idiomatic integration patterns, native Runner setup, platform difference
 3. **Use `SnapLayoutButton` or `WindowCaption` on Windows 11** when `titleBarStyle` is `TitleBarStyle.hidden` or `TitleBarStyle.immersive` so the custom maximize/restore button registers its bounding box with native `WM_NCHITTEST` (`HTMAXBUTTON`) and triggers the native Windows 11 Snap Layouts flyout.
 4. **Always pair `preventClose: true` with `XueHuaNaviteWindowManager.instance.destroy()`**: When `preventClose` is enabled, `close()` and the OS close button emit `onWindowCloseRequested()`. Call `destroy()` (not `close()`) when the user confirms exiting.
 5. **Remove `WindowListener` in `dispose()`**: Always call `XueHuaNaviteWindowManager.instance.removeListener(this)` when disposing a stateful widget that mixes in `WindowListener`.
+6. **Linux Wayland drag and center**: Use `DragArea` / `WindowResizeEdgeArea` (they register hit rects so the GDK filter can call `gtk_window_begin_move_drag` during the button press). Do not expect `center()` or `setPosition()` to move an already-mapped Wayland window. `center()` returns false in that case, and `WindowStateSnapshot.isPositionAuthoritative` is false. X11 keeps the async drag path and real centering.
 
 ## Examples
 

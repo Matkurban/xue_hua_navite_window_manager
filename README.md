@@ -2,7 +2,7 @@
 
 English | [简体中文](./README_ZH.md)
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
 [![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.47.0-02569B.svg)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-%5E3.13.0-0175C2.svg)](https://dart.dev)
 [![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-success.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
@@ -16,7 +16,7 @@ Designed from the ground up to solve the core architectural limitations of legac
 3. **Deep Custom Frameless Window with Native OS Feel**:
    - **Windows (`C++17` / `Win32 Subclassing` / `DWM`)**: Uses `SetWindowSubclass` to intercept `WM_NCCALCSIZE` (removes standard title bar while keeping native border styles), `DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND)` + `DwmExtendFrameIntoClientArea` (preserves Windows 11 native rounded corners and drop shadow), `WM_NCHITTEST` (provides DPI-aware 8-direction resize borders and registers custom Dart widgets as `HTMAXBUTTON` to trigger **Windows 11 Snap Layouts**), and `WM_GETMINMAXINFO` (enforces smooth min/max constraints in the native message loop).
    - **macOS (`Swift 5.9+` / `AppKit` / `SPM`)**: Native Swift Package Manager (`Package.swift`) support, `.fullSizeContentView` + transparent title bar, and a persistent **Traffic Lights Offset Controller** that pins `closeButton`, `miniaturizeButton`, and `zoomButton` to custom `(x, y)` coordinates across live resizing and full-screen transitions.
-   - **Linux (`C` / `GTK3`)**: Frameless CSD decoration toggling, `GdkGeometry` min/max size hints, and native `gtk_window_begin_move_drag` / `gtk_window_begin_resize_drag`.
+   - **Linux (`C` / `GTK3`)**: Frameless CSD decoration toggling, `GdkGeometry` min/max size hints, and native `gtk_window_begin_move_drag` / `gtk_window_begin_resize_drag`. On Wayland those calls run inside the button-press dispatch; see [Linux X11 and Wayland](#linux-x11-and-wayland).
 
 ---
 
@@ -32,10 +32,29 @@ Designed from the ground up to solve the core architectural limitations of legac
 | Custom Traffic Lights `(x, y)` Offset & Visibility | ✅ | N/A | N/A |
 | Message-Loop `minSize` / `maxSize` Enforcement | ✅ | ✅ (`WM_GETMINMAXINFO`) | ✅ (`GdkGeometry`) |
 | Close Interception (`preventClose` + `destroy()`) | ✅ (`windowShouldClose`) | ✅ (`WM_CLOSE`) | ✅ (`delete-event`) |
-| Native Dragging (`startDragging` / `DragArea`) | ✅ | ✅ | ✅ |
-| 8-Direction Native Edge Resizing (`startResizing`) | ✅ | ✅ | ✅ |
+| Native Dragging (`startDragging` / `DragArea`) | ✅ | ✅ | ✅ X11, ✅ Wayland via `DragArea` |
+| 8-Direction Native Edge Resizing (`startResizing`) | ✅ | ✅ | ✅ X11, ✅ Wayland via `WindowResizeEdgeArea` |
+| Center on the active monitor | ✅ | ✅ | ✅ X11, best-effort Wayland (see below) |
 
 ---
+
+## Linux X11 and Wayland
+
+`DragArea` and `WindowResizeEdgeArea` publish their layout rectangles ahead of the click. The GDK event filter hit-tests those rectangles.
+
+| | X11 (and XWayland) | Wayland (`gdk_display_get_name` starts with `wayland`) |
+| :--- | :--- | :--- |
+| `DragArea` move | Async `gtk_window_begin_move_drag` after `startDragging()`. Uses the captured button time, then `GDK_CURRENT_TIME` if none was captured. | `gtk_window_begin_move_drag` runs **inside** the button-press filter, before the method channel. GTK 3 ignores the timestamp on Wayland and sends the seat's implicit-grab serial. Mutter, KWin, and wlroots accept that serial for `xdg_toplevel.move` when it is still the pressed-button grab. |
+| `WindowResizeEdgeArea` | Async `gtk_window_begin_resize_drag`, same timestamp rules. | Same synchronous filter path as move. Maximized or non-resizable windows are not resized from the filter. |
+| `startDragging()` / `startResizing()` with no registered rect | Works, including the `GDK_CURRENT_TIME` fallback. | Best-effort only. If the filter did not already start this press, the async call still runs when a button serial was captured and is skipped when it was not. A call that arrives after the button is up cannot move the window. |
+| Double-click maximize on `DragArea` | Flutter gesture, unchanged. | Flutter gesture, unchanged. If a compositor's move grab swallows the second click, the double-click does not fire. That case is not papered over. |
+| `center()` before the window is mapped | `GTK_WIN_POS_CENTER`, honored at map. `center()` returns true. | The same hint is set. `center()` returns **false**: xdg-shell does not promise the compositor will use it. |
+| `center()` on a mapped window | Moves to the monitor work area (same integer math as Windows). Returns true. | No `gtk_window_move`. The protocol has no client absolute position, and calling it would only update GTK's cache. Returns false. Does not crash. |
+| Reported origin (`getBounds` / `getState`) | Authoritative. | `isPositionAuthoritative` is false. The numbers may be `0,0` or a stale GTK value. |
+
+There is no portal or GTK 3 API that places an already-mapped toplevel on Wayland. Layer-shell is for panels, not application windows, and is not used.
+
+Interactive controls must not be children of `DragArea` on Wayland: the press starts a window move for the whole registered rectangle. Put buttons next to the drag region, as `WindowCaption` does.
 
 ## Installation
 

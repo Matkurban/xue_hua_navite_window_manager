@@ -50,6 +50,11 @@ struct _XueHuaNaviteWindowManagerPlugin {
   gboolean move_drag_active;
   gboolean resize_drag_active;
   gboolean warned_wayland_drag;
+  // Event time of a Wayland move/resize already started inside the GDK filter.
+  // The matching async startDragging/startResizing call must not start again.
+  guint32 sync_press_time;
+  // XueHuaInteractiveRegion elements. Owned by the plugin.
+  GArray* interactive_regions;
   guint synthetic_release_idle_id;
 
   gulong delete_event_id;
@@ -487,6 +492,178 @@ static void remember_button_press(XueHuaNaviteWindowManagerPlugin* self,
   self->last_mouse_time = event->time;
 }
 
+static bool gdk_edge_from_kind(int kind, GdkWindowEdge* edge) {
+  if (edge == nullptr) {
+    return false;
+  }
+  switch (kind) {
+    case XUE_HUA_INTERACTIVE_RESIZE_NORTH:
+      *edge = GDK_WINDOW_EDGE_NORTH;
+      return true;
+    case XUE_HUA_INTERACTIVE_RESIZE_SOUTH:
+      *edge = GDK_WINDOW_EDGE_SOUTH;
+      return true;
+    case XUE_HUA_INTERACTIVE_RESIZE_WEST:
+      *edge = GDK_WINDOW_EDGE_WEST;
+      return true;
+    case XUE_HUA_INTERACTIVE_RESIZE_EAST:
+      *edge = GDK_WINDOW_EDGE_EAST;
+      return true;
+    case XUE_HUA_INTERACTIVE_RESIZE_NORTH_WEST:
+      *edge = GDK_WINDOW_EDGE_NORTH_WEST;
+      return true;
+    case XUE_HUA_INTERACTIVE_RESIZE_NORTH_EAST:
+      *edge = GDK_WINDOW_EDGE_NORTH_EAST;
+      return true;
+    case XUE_HUA_INTERACTIVE_RESIZE_SOUTH_WEST:
+      *edge = GDK_WINDOW_EDGE_SOUTH_WEST;
+      return true;
+    case XUE_HUA_INTERACTIVE_RESIZE_SOUTH_EAST:
+      *edge = GDK_WINDOW_EDGE_SOUTH_EAST;
+      return true;
+    default:
+      return false;
+  }
+}
+
+static bool view_local_from_button(XueHuaNaviteWindowManagerPlugin* self,
+                                   const GdkEventButton* event,
+                                   double* x_out,
+                                   double* y_out) {
+  if (event == nullptr || event->window == nullptr || x_out == nullptr ||
+      y_out == nullptr) {
+    return false;
+  }
+  g_autoptr(FlView) view = FL_VIEW(g_weak_ref_get(&self->view));
+  if (view == nullptr) {
+    return false;
+  }
+  GdkWindow* view_window = gtk_widget_get_window(GTK_WIDGET(view));
+  if (view_window == nullptr) {
+    return false;
+  }
+  gint view_x = 0;
+  gint view_y = 0;
+  gint event_x = 0;
+  gint event_y = 0;
+  gdk_window_get_origin(view_window, &view_x, &view_y);
+  gdk_window_get_origin(event->window, &event_x, &event_y);
+  *x_out = xue_hua_view_local(event->x, event_x, view_x);
+  *y_out = xue_hua_view_local(event->y, event_y, view_y);
+  return true;
+}
+
+// GTK3 Wayland ignores the timestamp passed to gtk_window_begin_move_drag and
+// sends the seat's last implicit-grab serial (set while translating this
+// button event). Mutter, KWin, and wlroots accept that serial when the
+// request is made before the press dispatch returns. A later method-channel
+// call often loses the grab. X11 is unchanged: this returns without calling
+// begin_move_drag, and startDragging keeps the async path.
+static void try_wayland_sync_gesture(XueHuaNaviteWindowManagerPlugin* self,
+                                     GtkWindow* window,
+                                     GdkEventButton* event) {
+  if (self->interactive_regions == nullptr || event == nullptr ||
+      window == nullptr) {
+    return;
+  }
+  if (event->type != GDK_BUTTON_PRESS) {
+    return;
+  }
+  GdkDisplay* display = gtk_widget_get_display(GTK_WIDGET(window));
+  if (!display_is_wayland(display)) {
+    return;
+  }
+  double local_x = 0.0;
+  double local_y = 0.0;
+  if (!view_local_from_button(self, event, &local_x, &local_y)) {
+    return;
+  }
+  const XueHuaInteractiveRegion* regions = nullptr;
+  if (self->interactive_regions->len > 0) {
+    regions = &g_array_index(self->interactive_regions,
+                             XueHuaInteractiveRegion, 0);
+  }
+  const XueHuaPressPlan plan = xue_hua_plan_interactive_press(
+      true, event->button == GDK_BUTTON_PRIMARY, false, local_x, local_y,
+      regions, static_cast<int>(self->interactive_regions->len));
+  if (plan.action == XUE_HUA_PRESS_IGNORE) {
+    return;
+  }
+
+  const gint root_x = static_cast<gint>(event->x_root);
+  const gint root_y = static_cast<gint>(event->y_root);
+  const guint32 timestamp = event->time;
+  if (plan.action == XUE_HUA_PRESS_MOVE) {
+    self->move_drag_active = TRUE;
+    self->resize_drag_active = FALSE;
+    self->sync_press_time = timestamp;
+    gtk_window_begin_move_drag(window, event->button, root_x, root_y,
+                               timestamp);
+    return;
+  }
+
+  GdkWindowEdge edge = GDK_WINDOW_EDGE_SOUTH_EAST;
+  if (!gdk_edge_from_kind(plan.kind, &edge)) {
+    return;
+  }
+  if (!gtk_window_get_resizable(window) || gtk_window_is_maximized(window)) {
+    return;
+  }
+  self->resize_drag_active = TRUE;
+  self->move_drag_active = FALSE;
+  self->sync_press_time = timestamp;
+  gtk_window_begin_resize_drag(window, edge, event->button, root_x, root_y,
+                               timestamp);
+}
+
+static bool async_drag_already_synced(XueHuaNaviteWindowManagerPlugin* self,
+                                      GtkWindow* window) {
+  GdkDisplay* display = gtk_widget_get_display(GTK_WIDGET(window));
+  return display_is_wayland(display) && self->sync_press_time != 0 &&
+         self->sync_press_time == self->last_mouse_time;
+}
+
+static bool get_int_arg(FlValue* args, const gchar* key, int64_t* out_val) {
+  FlValue* v = lookup_map_value(args, key);
+  if (v == nullptr) {
+    return false;
+  }
+  if (fl_value_get_type(v) == FL_VALUE_TYPE_INT) {
+    *out_val = fl_value_get_int(v);
+    return true;
+  }
+  if (fl_value_get_type(v) == FL_VALUE_TYPE_FLOAT) {
+    *out_val = static_cast<int64_t>(std::lround(fl_value_get_float(v)));
+    return true;
+  }
+  return false;
+}
+
+static void upsert_interactive_region(XueHuaNaviteWindowManagerPlugin* self,
+                                      const XueHuaInteractiveRegion& region,
+                                      bool present) {
+  if (self->interactive_regions == nullptr) {
+    return;
+  }
+  for (guint i = 0; i < self->interactive_regions->len; i++) {
+    XueHuaInteractiveRegion* existing = &g_array_index(
+        self->interactive_regions, XueHuaInteractiveRegion, i);
+    if (existing->id != region.id) {
+      continue;
+    }
+    if (!present) {
+      g_array_remove_index(self->interactive_regions, i);
+    } else {
+      *existing = region;
+    }
+    return;
+  }
+  if (present) {
+    XueHuaInteractiveRegion stored = region;
+    g_array_append_val(self->interactive_regions, stored);
+  }
+}
+
 static GdkFilterReturn on_pointer_filter(GdkXEvent* native_event,
                                          GdkEvent* event,
                                          gpointer user_data) {
@@ -521,7 +698,10 @@ static GdkFilterReturn on_pointer_filter(GdkXEvent* native_event,
   }
   // Widget button-press-event often never runs: FlView consumes the press.
   // The GDK filter still sees the event time Wayland needs as a seat serial.
+  // On Wayland, also start the interactive move/resize here, while GDK's
+  // implicit grab serial is the one the compositor will accept.
   remember_button_press(self, &event->button);
+  try_wayland_sync_gesture(self, self->hooked_window, &event->button);
   return GDK_FILTER_CONTINUE;
 }
 
@@ -579,18 +759,31 @@ static void apply_title_bar_style(GtkWindow* window, const gchar* style) {
   }
 }
 
-static void center_window(GtkWindow* window, gint width, gint height) {
+// Returns whether the position change is known to be applied. Resizing still
+// runs on every backend; only the move is backend-specific.
+static bool center_window(GtkWindow* window, gint width, gint height) {
   if (width > 0 && height > 0) {
     gtk_window_resize(window, width, height);
     gtk_window_set_default_size(window, width, height);
   }
 
   GtkWidget* widget = GTK_WIDGET(window);
-  // GTK_WIN_POS_CENTER is only consulted the first time the window maps.
-  // A window that is already on screen has to be moved from monitor geometry.
-  if (!gtk_widget_get_mapped(widget)) {
+  GdkDisplay* display = gtk_widget_get_display(widget);
+  const bool wayland = display_is_wayland(display) != FALSE;
+  const bool mapped = gtk_widget_get_mapped(widget) != FALSE;
+  const XueHuaCenterAction action = xue_hua_plan_center(mapped, wayland);
+
+  // Unmapped windows, including the first show: GTK_WIN_POS_CENTER is read
+  // when the window maps. On Wayland this is only a hint (xdg-shell lets the
+  // compositor place the toplevel). On X11 it is honored.
+  if (action == XUE_HUA_CENTER_MAP_HINT) {
     gtk_window_set_position(window, GTK_WIN_POS_CENTER);
-    return;
+    return xue_hua_center_position_applied(action, wayland);
+  }
+  // Mapped Wayland: do not call gtk_window_move. The request is ignored and
+  // GTK would cache a position the compositor never applied.
+  if (action == XUE_HUA_CENTER_WAYLAND_IGNORED) {
+    return false;
   }
 
   gint target_w = width;
@@ -599,7 +792,6 @@ static void center_window(GtkWindow* window, gint width, gint height) {
     gtk_window_get_size(window, &target_w, &target_h);
   }
 
-  GdkDisplay* display = gtk_widget_get_display(widget);
   GdkMonitor* monitor = nullptr;
   GdkWindow* gdk_window = gtk_widget_get_window(widget);
   if (display != nullptr && gdk_window != nullptr) {
@@ -611,7 +803,7 @@ static void center_window(GtkWindow* window, gint width, gint height) {
   }
   if (monitor == nullptr) {
     gtk_window_set_position(window, GTK_WIN_POS_CENTER);
-    return;
+    return true;
   }
 
   GdkRectangle area;
@@ -621,9 +813,8 @@ static void center_window(GtkWindow* window, gint width, gint height) {
   }
   const XueHuaCenteredOrigin origin = xue_hua_compute_centered_origin(
       area.x, area.y, area.width, area.height, target_w, target_h);
-  // Wayland compositors may ignore this. The call is still safe on both
-  // backends; X11 applies it to an already-mapped window.
   gtk_window_move(window, origin.x, origin.y);
+  return true;
 }
 
 static gboolean query_pointer_root(GtkWindow* window, gint* x, gint* y) {
@@ -657,9 +848,11 @@ static gboolean prepare_move_drag(XueHuaNaviteWindowManagerPlugin* self,
     if (!self->warned_wayland_drag) {
       self->warned_wayland_drag = TRUE;
       g_warning(
-          "xue_hua_navite_window_manager: skipped startDragging/startResizing "
-          "because this Wayland compositor requires a button-press serial and "
-          "none was captured. Drag again with the primary button.");
+          "xue_hua_navite_window_manager: skipped async "
+          "startDragging/startResizing on Wayland because no button-press "
+          "serial was captured. DragArea and WindowResizeEdgeArea start the "
+          "gesture inside the press event; a later method-channel call cannot "
+          "be honored once that serial is gone.");
     }
     return FALSE;
   }
@@ -716,6 +909,11 @@ static FlValue* build_window_state_snapshot(
       fl_value_new_bool(gtk_window_get_resizable(window)));
   fl_value_set_string_take(map, "isPreventClose",
                            fl_value_new_bool(self->prevent_close));
+  GdkDisplay* display = gtk_widget_get_display(GTK_WIDGET(window));
+  fl_value_set_string_take(
+      map, "isPositionAuthoritative",
+      fl_value_new_bool(xue_hua_position_is_authoritative(
+          display_is_wayland(display) != FALSE)));
   return map;
 }
 
@@ -751,6 +949,52 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
   if (strcmp(method, "ensureInitialized") == 0) {
     get_main_window(self);
     response = xue_hua_navite_window_manager_handle_ensure_initialized();
+    fl_method_call_respond(method_call, response, nullptr);
+    return;
+  }
+
+  // Regions are stored on the plugin. The window may not be hooked yet; the
+  // next button press hit-tests whatever was registered.
+  if (strcmp(method, "setLinuxInteractiveRegion") == 0) {
+    int64_t id = 0;
+    if (!get_int_arg(args, "id", &id)) {
+      response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+          "BAD_ARGS", "setLinuxInteractiveRegion requires an integer id.",
+          nullptr));
+      fl_method_call_respond(method_call, response, nullptr);
+      return;
+    }
+    const bool present = get_bool_arg(args, "present", FALSE) != FALSE;
+    XueHuaInteractiveRegion region{};
+    region.id = static_cast<int>(id);
+    region.kind = XUE_HUA_INTERACTIVE_MOVE;
+    if (present) {
+      FlValue* kind_val = lookup_map_value(args, "kind");
+      const gchar* kind_wire = "move";
+      if (kind_val != nullptr &&
+          fl_value_get_type(kind_val) == FL_VALUE_TYPE_STRING) {
+        kind_wire = fl_value_get_string(kind_val);
+      }
+      int kind = XUE_HUA_INTERACTIVE_MOVE;
+      if (!xue_hua_interactive_kind_from_wire(kind_wire, &kind)) {
+        response = FL_METHOD_RESPONSE(fl_method_error_response_new(
+            "BAD_ARGS", "Unknown Linux interactive region kind.", nullptr));
+        fl_method_call_respond(method_call, response, nullptr);
+        return;
+      }
+      region.kind = kind;
+      gdouble x = 0, y = 0, w = 0, h = 0;
+      get_double_arg(args, "x", &x);
+      get_double_arg(args, "y", &y);
+      get_double_arg(args, "width", &w);
+      get_double_arg(args, "height", &h);
+      region.x = x;
+      region.y = y;
+      region.width = w;
+      region.height = h;
+    }
+    upsert_interactive_region(self, region, present);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
     fl_method_call_respond(method_call, response, nullptr);
     return;
   }
@@ -931,8 +1175,10 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
       target_w = static_cast<gint>(std::lround(w));
       target_h = static_cast<gint>(std::lround(h));
     }
-    center_window(window, target_w, target_h);
-    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+    const bool applied = center_window(window, target_w, target_h);
+    g_autoptr(FlValue) applied_value = fl_value_new_bool(applied);
+    response =
+        FL_METHOD_RESPONSE(fl_method_success_response_new(applied_value));
   } else if (strcmp(method, "setMinimumSize") == 0) {
     gdouble w = 0, h = 0;
     get_double_arg(args, "width", &w);
@@ -991,7 +1237,9 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
     gint root_x = 0;
     gint root_y = 0;
     gint button = 1;
-    if (prepare_move_drag(self, window, &timestamp, &root_x, &root_y,
+    // Wayland DragArea already called begin_move_drag inside the press filter.
+    if (!async_drag_already_synced(self, window) &&
+        prepare_move_drag(self, window, &timestamp, &root_x, &root_y,
                           &button)) {
       self->move_drag_active = TRUE;
       gtk_window_begin_move_drag(window, button, root_x, root_y, timestamp);
@@ -1024,7 +1272,8 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
       gint root_x = 0;
       gint root_y = 0;
       gint button = 1;
-      if (prepare_move_drag(self, window, &timestamp, &root_x, &root_y,
+      if (!async_drag_already_synced(self, window) &&
+          prepare_move_drag(self, window, &timestamp, &root_x, &root_y,
                             &button)) {
         self->resize_drag_active = TRUE;
         gtk_window_begin_resize_drag(window, gdk_edge, button, root_x, root_y,
@@ -1093,6 +1342,10 @@ static void xue_hua_navite_window_manager_plugin_dispose(GObject* object) {
     gdk_window_remove_filter(nullptr, on_pointer_filter, self);
     self->pointer_filter_installed = FALSE;
   }
+  if (self->interactive_regions != nullptr) {
+    g_array_free(self->interactive_regions, TRUE);
+    self->interactive_regions = nullptr;
+  }
   if (self->synthetic_release_idle_id != 0) {
     g_source_remove(self->synthetic_release_idle_id);
     self->synthetic_release_idle_id = 0;
@@ -1116,6 +1369,8 @@ static void xue_hua_navite_window_manager_plugin_init(
   g_weak_ref_init(&self->view, nullptr);
   self->is_resizable = TRUE;
   self->last_mouse_button = 1;
+  self->interactive_regions =
+      g_array_new(FALSE, TRUE, sizeof(XueHuaInteractiveRegion));
 }
 
 static void method_call_cb(FlMethodChannel* channel,

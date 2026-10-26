@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -24,6 +25,12 @@ class XueHuaNaviteWindowManager {
   /// Singleton instance of [XueHuaNaviteWindowManager].
   static final XueHuaNaviteWindowManager instance =
       XueHuaNaviteWindowManager._();
+
+  static int _nextLinuxRegionId = 1;
+
+  /// Allocates an id for [setLinuxInteractiveRegion]. Drag widgets use this so
+  /// move and resize regions do not collide.
+  static int allocateLinuxInteractiveRegionId() => _nextLinuxRegionId++;
 
   XueHuaNaviteWindowManagerPlatform get _platform =>
       XueHuaNaviteWindowManagerPlatform.instance;
@@ -85,6 +92,7 @@ class XueHuaNaviteWindowManager {
         isAlwaysOnTop: _lastSnapshot!.isAlwaysOnTop,
         isResizable: _lastSnapshot!.isResizable,
         isPreventClose: _lastSnapshot!.isPreventClose,
+        isPositionAuthoritative: _lastSnapshot!.isPositionAuthoritative,
       );
     }
 
@@ -257,8 +265,35 @@ class XueHuaNaviteWindowManager {
   Future<Offset> getPosition() => _platform.getPosition();
 
   /// Centers the window on the active monitor, optionally resizing it atomically first.
-  Future<void> center({Size? size, bool animate = false}) =>
+  ///
+  /// Returns false when the compositor cannot be trusted to apply the move.
+  /// That is every Wayland call: the unmapped `GTK_WIN_POS_CENTER` hint is
+  /// still sent before the first map, and a mapped window is left where the
+  /// compositor placed it. Windows, macOS, and X11 return true.
+  Future<bool> center({Size? size, bool animate = false}) =>
       _platform.center(size: size, animate: animate);
+
+  /// Registers a Linux hit region so Wayland can begin a move or resize
+  /// synchronously inside the button-press event.
+  ///
+  /// No-op on Windows, macOS, and web. [kind] is `move` or a [ResizeEdge]
+  /// wire value. Pass [present] false to drop [id].
+  Future<void> setLinuxInteractiveRegion({
+    required int id,
+    required bool present,
+    String kind = 'move',
+    Rect? rect,
+  }) {
+    if (kIsWeb || !Platform.isLinux) {
+      return Future<void>.value();
+    }
+    return _platform.setLinuxInteractiveRegion(
+      id: id,
+      present: present,
+      kind: kind,
+      rect: rect,
+    );
+  }
 
   /// Sets the minimum window size in logical pixels (DIP).
   Future<void> setMinimumSize(Size size) => _platform.setMinimumSize(size);
