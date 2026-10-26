@@ -17,6 +17,8 @@ screenshots:
     path: screenshots/windows_studio.png
   - description: 'Studio controls on Windows — title bar styles, behavior chips, DragArea, and lifecycle actions.'
     path: screenshots/windows_studio_controls.png
+  - description: 'XueHua Native Window Manager Studio on Linux — live telemetry, atomic presets, and native event stream.'
+    path: screenshots/linux_studio.png
 
 environment:
   sdk: ^3.13.0
