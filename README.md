@@ -2,7 +2,7 @@
 
 English | [简体中文](./README_ZH.md)
 
-[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
+[![Version](https://img.shields.io/badge/version-1.0.3-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
 [![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.47.0-02569B.svg)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-%5E3.13.0-0175C2.svg)](https://dart.dev)
 [![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-success.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)

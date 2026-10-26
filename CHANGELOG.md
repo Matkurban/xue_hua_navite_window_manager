@@ -1,3 +1,7 @@
+## 1.0.3
+
+* Shorten the package description so it stays within the 60–180 character range pub.dev and search engines display.
+
 ## 1.0.2
 
 * **Material import:** `WindowCaption` now imports `package:material_ui/material_ui.dart`. `package:flutter/material.dart` is deprecated on Flutter 3.50 and produced an analyzer warning.
