@@ -30,13 +30,44 @@ struct LogicalRect {
   }
 };
 
+/// True when a left-button release should activate the Snap Layout control.
+///
+/// The press must have been armed (`WM_NCLBUTTONDOWN` / `HTMAXBUTTON`) and the
+/// cursor must still be inside the registered DIP rect. A release over the
+/// Windows 11 Snap Layouts flyout is outside that rect and must not toggle.
+inline bool ShouldActivateSnapButton(bool enabled,
+                                     bool armed,
+                                     bool cursor_inside) {
+  return enabled && armed && cursor_inside;
+}
+
+/// True when `WM_NCHITTEST` should return `HTMAXBUTTON` for this cursor.
+///
+/// Only hidden and immersive frames participate. `normal` keeps the system
+/// caption buttons, and fullscreen has no custom caption.
+inline bool ShouldReportSnapButtonHit(bool enabled,
+                                       bool fullscreen,
+                                       const std::string& title_bar_style,
+                                       const LogicalRect& rect,
+                                       double x,
+                                       double y) {
+  if (!enabled || fullscreen) {
+    return false;
+  }
+  if (title_bar_style != "hidden" && title_bar_style != "immersive") {
+    return false;
+  }
+  return rect.width > 0.0 && rect.height > 0.0 && rect.Contains(x, y);
+}
+
 /// Production-grade Windows desktop window manager plugin (C++17 / Win32 / DWM).
 ///
 /// Key architecture:
 /// - **Win32 Subclassing (`SetWindowSubclass`)**: Intercepts `WM_NCCALCSIZE`,
 ///   `WM_NCHITTEST`, `WM_GETMINMAXINFO`, `WM_ERASEBKGND`, `WM_CLOSE`, `WM_SIZE`,
-///   `WM_MOVE`, `WM_ACTIVATE`, `WM_NCMOUSEMOVE`, `WM_NCLBUTTONDOWN`, and
-///   `WM_NCLBUTTONUP` directly on the top-level host `HWND`.
+///   `WM_MOVE`, `WM_ACTIVATE`, `WM_NCMOUSEMOVE`, `WM_NCLBUTTONDOWN`,
+///   `WM_NCLBUTTONUP`, and the captured `WM_LBUTTONUP` directly on the
+///   top-level host `HWND`.
 /// - **Zero-Flash First Frame**: Fills `WM_ERASEBKGND` with a custom `HBRUSH` matching
 ///   `backgroundColor`, applies all geometry & DWM attributes prior to revealing, and
 ///   defers `ShowWindow` until `markReadyToShow` is called after Flutter's first frame.
@@ -111,6 +142,13 @@ class XueHuaNaviteWindowManagerPlugin : public flutter::Plugin {
   void StartNativeDragging(HWND hwnd);
   void StartNativeResizing(HWND hwnd, const std::string& edge);
 
+  // Snap Layout maximize button. Coordinates are Flutter view client DIPs,
+  // matching `RenderBox.localToGlobal`.
+  bool ScreenToViewDip(HWND hwnd, POINT screen_pt, double* x, double* y) const;
+  bool CursorInSnapButton(HWND hwnd, POINT screen_pt) const;
+  void ArmSnapButtonPress(HWND hwnd);
+  void FinishSnapButtonPress(HWND hwnd);
+
   // Event emission over EventChannel.
   void EmitWindowEvent(const std::string& type, HWND hwnd);
 
@@ -147,6 +185,10 @@ class XueHuaNaviteWindowManagerPlugin : public flutter::Plugin {
   bool snap_button_enabled_ = false;
   LogicalRect snap_button_rect_;
   bool is_snap_button_hovered_ = false;
+  // Armed by WM_NCLBUTTONDOWN/HTMAXBUTTON. The matching release often arrives
+  // as WM_LBUTTONUP after SetCapture, not as WM_NCLBUTTONUP.
+  bool snap_button_pressed_ = false;
+  bool snap_click_posted_ = false;
 
   std::vector<LogicalRect> drag_rects_;
   std::vector<LogicalRect> exclude_rects_;
