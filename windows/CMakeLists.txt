@@ -71,9 +71,12 @@ set(TEST_RUNNER "${PROJECT_NAME}_test")
 enable_testing()
 
 include(FetchContent)
+# release-1.11.0 sets cmake_minimum_required() below 3.5. CMake 4 removed
+# compatibility with that, so configuring the example fails. v1.15.2 requires
+# CMake 3.13 (Flutter Windows already requires 3.14) and still builds as C++14.
 FetchContent_Declare(
   googletest
-  URL https://github.com/google/googletest/archive/release-1.11.0.zip
+  URL https://github.com/google/googletest/archive/v1.15.2.zip
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 set(INSTALL_GTEST OFF CACHE BOOL "Disable installation of googletest" FORCE)
