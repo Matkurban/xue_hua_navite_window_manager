@@ -1,6 +1,6 @@
 name: xue_hua_navite_window_manager
-description: "High-performance cross-platform desktop window manager plugin for Flutter (macOS, Windows, Linux) with zero-flash startup, atomic configuration, custom frameless window & DWM shadow/Snap Layouts, and macOS traffic lights positioning."
-version: 1.0.2
+description: "Flutter desktop window manager for macOS, Windows, and Linux with zero-flash startup, atomic configuration, frameless windows, and native title bars."
+version: 1.0.3
 homepage: https://github.com/Matkurban/xue_hua_navite_window_manager
 repository: https://github.com/Matkurban/xue_hua_navite_window_manager
 issue_tracker: https://github.com/Matkurban/xue_hua_navite_window_manager/issues
