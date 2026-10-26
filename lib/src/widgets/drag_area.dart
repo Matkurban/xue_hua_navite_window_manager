@@ -14,10 +14,10 @@ import '../xue_hua_navite_window_manager_controller.dart';
 ///
 /// On Linux the widget also publishes its layout rect. Wayland compositors
 /// only accept an interactive move while the button-press serial is current,
-/// so the GTK filter calls `gtk_window_begin_move_drag` synchronously when
-/// the press lands in that rect. X11 still uses the async `startDragging`
-/// path, including the `GDK_CURRENT_TIME` fallback. Double-click maximize
-/// stays in Flutter on every backend.
+/// so the native button-press hook calls `gtk_window_begin_move_drag`
+/// synchronously when the press lands in that rect. X11 still uses the async
+/// `startDragging` path, including the `GDK_CURRENT_TIME` fallback.
+/// Double-click maximize stays in Flutter on every backend.
 class DragArea extends StatefulWidget {
   /// Child widget rendered inside the draggable region.
   final Widget child;

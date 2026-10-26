@@ -156,7 +156,7 @@ class _ResizeEdgeHitTargetState extends State<_ResizeEdgeHitTarget> {
 
   @override
   Widget build(BuildContext context) {
-    // Wayland begins the resize from this rect inside the button-press filter.
+    // Wayland begins the resize from this rect inside the button-press emission hook.
     // X11 ignores the rect and keeps the async startResizing path below.
     _region.schedule(context, kind: widget.edge.wireValue);
     return MouseRegion(
