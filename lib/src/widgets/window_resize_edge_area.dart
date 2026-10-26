@@ -56,7 +56,10 @@ class WindowResizeEdgeArea extends StatelessWidget {
           bottom: corner,
           left: 0,
           width: edgeThickness,
-          child: _buildEdge(ResizeEdge.left, SystemMouseCursors.resizeLeftRight),
+          child: _buildEdge(
+            ResizeEdge.left,
+            SystemMouseCursors.resizeLeftRight,
+          ),
         ),
         // Right edge
         Positioned(
@@ -64,8 +67,10 @@ class WindowResizeEdgeArea extends StatelessWidget {
           bottom: corner,
           right: 0,
           width: edgeThickness,
-          child:
-              _buildEdge(ResizeEdge.right, SystemMouseCursors.resizeLeftRight),
+          child: _buildEdge(
+            ResizeEdge.right,
+            SystemMouseCursors.resizeLeftRight,
+          ),
         ),
         // Top-Left corner
         Positioned(

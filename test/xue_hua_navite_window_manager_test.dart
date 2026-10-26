@@ -212,23 +212,20 @@ void main() {
 
     final WindowStateSnapshot snapshot =
         await XueHuaNaviteWindowManager.configure(
-      const WindowConfig(
-        size: Size(1200, 800),
-        center: true,
-        titleBarStyle: TitleBarStyle.hidden,
-        preventClose: true,
-        showWhenReady: false,
-      ),
-    );
+          const WindowConfig(
+            size: Size(1200, 800),
+            center: true,
+            titleBarStyle: TitleBarStyle.hidden,
+            preventClose: true,
+            showWhenReady: false,
+          ),
+        );
 
     expect(snapshot.bounds.size, const Size(1200, 800));
     expect(snapshot.isPreventClose, isTrue);
 
     fakePlatform.eventController.add(
-      const WindowEvent(
-        type: WindowEventType.closeRequested,
-        timestamp: 1000,
-      ),
+      const WindowEvent(type: WindowEventType.closeRequested, timestamp: 1000),
     );
     fakePlatform.eventController.add(
       const WindowEvent(

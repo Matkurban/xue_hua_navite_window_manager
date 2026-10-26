@@ -59,36 +59,39 @@ class XueHuaNaviteWindowManager {
       _lastSnapshot = WindowStateSnapshot(
         bounds: event.bounds ?? _lastSnapshot!.bounds,
         isVisible: _lastSnapshot!.isVisible,
-        isMaximized: event.isMaximized ??
+        isMaximized:
+            event.isMaximized ??
             (event.type == WindowEventType.maximized
                 ? true
                 : event.type == WindowEventType.unmaximized
-                    ? false
-                    : _lastSnapshot!.isMaximized),
+                ? false
+                : _lastSnapshot!.isMaximized),
         isMinimized: event.type == WindowEventType.minimized
             ? true
             : event.type == WindowEventType.restored
-                ? false
-                : _lastSnapshot!.isMinimized,
-        isFullScreen: event.isFullScreen ??
+            ? false
+            : _lastSnapshot!.isMinimized,
+        isFullScreen:
+            event.isFullScreen ??
             (event.type == WindowEventType.enteredFullScreen
                 ? true
                 : event.type == WindowEventType.exitedFullScreen
-                    ? false
-                    : _lastSnapshot!.isFullScreen),
+                ? false
+                : _lastSnapshot!.isFullScreen),
         isFocused: event.type == WindowEventType.focused
             ? true
             : event.type == WindowEventType.blurred
-                ? false
-                : _lastSnapshot!.isFocused,
+            ? false
+            : _lastSnapshot!.isFocused,
         isAlwaysOnTop: _lastSnapshot!.isAlwaysOnTop,
         isResizable: _lastSnapshot!.isResizable,
         isPreventClose: _lastSnapshot!.isPreventClose,
       );
     }
 
-    final List<WindowListener> localListeners =
-        List<WindowListener>.of(_listeners);
+    final List<WindowListener> localListeners = List<WindowListener>.of(
+      _listeners,
+    );
     for (final WindowListener listener in localListeners) {
       if (!_listeners.contains(listener)) continue;
       listener.onWindowEvent(event);
@@ -158,8 +161,9 @@ class XueHuaNaviteWindowManager {
     // Send the atomic configuration payload without revealing immediately until
     // the first Flutter frame is guaranteed to be rasterized.
     final WindowConfig preFrameConfig = config.copyWith(showWhenReady: false);
-    final WindowStateSnapshot snapshot =
-        await _platform.configure(preFrameConfig);
+    final WindowStateSnapshot snapshot = await _platform.configure(
+      preFrameConfig,
+    );
     _lastSnapshot = snapshot;
 
     if (config.showWhenReady) {
@@ -283,12 +287,11 @@ class XueHuaNaviteWindowManager {
     TitleBarStyle style, {
     Offset? trafficLightsOffset,
     bool? trafficLightsVisible,
-  }) =>
-      _platform.setTitleBarStyle(
-        style,
-        trafficLightsOffset: trafficLightsOffset,
-        trafficLightsVisible: trafficLightsVisible,
-      );
+  }) => _platform.setTitleBarStyle(
+    style,
+    trafficLightsOffset: trafficLightsOffset,
+    trafficLightsVisible: trafficLightsVisible,
+  );
 
   /// Dynamically repositions the macOS traffic light buttons (`close`, `miniaturize`, `zoom`).
   Future<void> setTrafficLightsOffset(Offset offset) =>
@@ -324,11 +327,10 @@ class XueHuaNaviteWindowManager {
   Future<void> setTitleBarDragRects({
     required List<Rect> dragRects,
     List<Rect> excludeRects = const <Rect>[],
-  }) =>
-      _platform.setTitleBarDragRects(
-        dragRects: dragRects,
-        excludeRects: excludeRects,
-      );
+  }) => _platform.setTitleBarDragRects(
+    dragRects: dragRects,
+    excludeRects: excludeRects,
+  );
 }
 
 /// Type alias for backward compatibility with architectural specifications referencing `NativeWindowController`.

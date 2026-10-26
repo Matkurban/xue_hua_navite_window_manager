@@ -252,10 +252,7 @@ class MethodChannelXueHuaNaviteWindowManager
   Future<void> setTrafficLightsOffset(Offset offset) async {
     await methodChannel.invokeMethod<void>(
       'setTrafficLightsOffset',
-      <String, dynamic>{
-        'x': offset.dx,
-        'y': offset.dy,
-      },
+      <String, dynamic>{'x': offset.dx, 'y': offset.dy},
     );
   }
 
@@ -263,9 +260,7 @@ class MethodChannelXueHuaNaviteWindowManager
   Future<void> setTrafficLightsVisible(bool visible) async {
     await methodChannel.invokeMethod<void>(
       'setTrafficLightsVisible',
-      <String, dynamic>{
-        'visible': visible,
-      },
+      <String, dynamic>{'visible': visible},
     );
   }
 
@@ -273,9 +268,7 @@ class MethodChannelXueHuaNaviteWindowManager
   Future<void> setBackgroundColor(Color color) async {
     await methodChannel.invokeMethod<void>(
       'setBackgroundColor',
-      <String, dynamic>{
-        'backgroundColor': color.toARGB32(),
-      },
+      <String, dynamic>{'backgroundColor': color.toARGB32()},
     );
   }
 

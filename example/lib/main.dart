@@ -132,8 +132,11 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
 
   void _appendLog(String message) {
     if (!mounted) return;
-    final String timestamp =
-        DateTime.now().toIso8601String().split('T').last.substring(0, 12);
+    final String timestamp = DateTime.now()
+        .toIso8601String()
+        .split('T')
+        .last
+        .substring(0, 12);
     setState(() {
       _eventLogs.insert(0, '[$timestamp] $message');
       if (_eventLogs.length > 60) {
@@ -225,7 +228,9 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
   @override
   void onSnapButtonHovered(bool isHovered) {
     setState(() => _snapButtonHovered = isHovered);
-    _appendLog(isHovered ? 'snapButtonHovered (HTMAXBUTTON)' : 'snapButtonLeft');
+    _appendLog(
+      isHovered ? 'snapButtonHovered (HTMAXBUTTON)' : 'snapButtonLeft',
+    );
   }
 
   @override
@@ -292,8 +297,8 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
               height: 44,
               macosTrafficLightsReservedWidth:
                   _trafficLightsVisible && !_isFullScreen
-                      ? (_trafficLightsX + 68.0)
-                      : 12.0,
+                  ? (_trafficLightsX + 68.0)
+                  : 12.0,
               backgroundColor: const Color(0xFF1A1D2D),
               title: Row(
                 children: <Widget>[
@@ -377,10 +382,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                     ),
                   ),
                   const VerticalDivider(width: 1, color: Colors.white12),
-                  Expanded(
-                    flex: 4,
-                    child: _buildEventStreamPanel(),
-                  ),
+                  Expanded(flex: 4, child: _buildEventStreamPanel()),
                 ],
               ),
             ),
@@ -500,19 +502,19 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                     const Color bg = Color(0xFF141622);
                     final WindowStateSnapshot snap =
                         await XueHuaNaviteWindowManager.configure(
-                      const WindowConfig(
-                        size: Size(1280, 820),
-                        minSize: Size(860, 580),
-                        center: true,
-                        title: 'Studio Default (1280×820 Centered)',
-                        titleBarStyle: TitleBarStyle.hidden,
-                        trafficLightsOffset: Offset(16, 14),
-                        trafficLightsVisible: true,
-                        backgroundColor: bg,
-                        preventClose: true,
-                        showWhenReady: true,
-                      ),
-                    );
+                          const WindowConfig(
+                            size: Size(1280, 820),
+                            minSize: Size(860, 580),
+                            center: true,
+                            title: 'Studio Default (1280×820 Centered)',
+                            titleBarStyle: TitleBarStyle.hidden,
+                            trafficLightsOffset: Offset(16, 14),
+                            trafficLightsVisible: true,
+                            backgroundColor: bg,
+                            preventClose: true,
+                            showWhenReady: true,
+                          ),
+                        );
                     setState(() {
                       _bgColor = bg;
                       _titleBarStyle = TitleBarStyle.hidden;
@@ -531,19 +533,19 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                     const Color bg = Color(0xFF0F172A);
                     final WindowStateSnapshot snap =
                         await XueHuaNaviteWindowManager.configure(
-                      const WindowConfig(
-                        size: Size(980, 660),
-                        minSize: Size(720, 480),
-                        center: true,
-                        title: 'Compact Immersive Mode',
-                        titleBarStyle: TitleBarStyle.immersive,
-                        trafficLightsOffset: Offset(22, 18),
-                        trafficLightsVisible: true,
-                        backgroundColor: bg,
-                        alwaysOnTop: false,
-                        showWhenReady: true,
-                      ),
-                    );
+                          const WindowConfig(
+                            size: Size(980, 660),
+                            minSize: Size(720, 480),
+                            center: true,
+                            title: 'Compact Immersive Mode',
+                            titleBarStyle: TitleBarStyle.immersive,
+                            trafficLightsOffset: Offset(22, 18),
+                            trafficLightsVisible: true,
+                            backgroundColor: bg,
+                            alwaysOnTop: false,
+                            showWhenReady: true,
+                          ),
+                        );
                     setState(() {
                       _bgColor = bg;
                       _titleBarStyle = TitleBarStyle.immersive;
@@ -551,7 +553,9 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                       _trafficLightsY = 18;
                       _currentBounds = snap.bounds;
                     });
-                    _appendLog('Atomic configure -> Compact Immersive (980x660)');
+                    _appendLog(
+                      'Atomic configure -> Compact Immersive (980x660)',
+                    );
                   },
                   icon: const Icon(Icons.layers_rounded, size: 18),
                   label: const Text('Compact Immersive (980×660)'),
@@ -560,14 +564,14 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   onPressed: () async {
                     final WindowStateSnapshot snap =
                         await XueHuaNaviteWindowManager.configure(
-                      const WindowConfig(
-                        size: Size(1100, 720),
-                        center: true,
-                        title: 'Native System TitleBar',
-                        titleBarStyle: TitleBarStyle.normal,
-                        showWhenReady: true,
-                      ),
-                    );
+                          const WindowConfig(
+                            size: Size(1100, 720),
+                            center: true,
+                            title: 'Native System TitleBar',
+                            titleBarStyle: TitleBarStyle.normal,
+                            showWhenReady: true,
+                          ),
+                        );
                     setState(() {
                       _titleBarStyle = TitleBarStyle.normal;
                       _currentBounds = snap.bounds;
@@ -623,8 +627,10 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                     setState(() => _titleBarStyle = style);
                     _windowManager.setTitleBarStyle(
                       style,
-                      trafficLightsOffset:
-                          Offset(_trafficLightsX, _trafficLightsY),
+                      trafficLightsOffset: Offset(
+                        _trafficLightsX,
+                        _trafficLightsY,
+                      ),
                       trafficLightsVisible: _trafficLightsVisible,
                     );
                     _appendLog('setTitleBarStyle(${style.wireValue})');
@@ -785,18 +791,12 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   'Midnight Indigo',
                   const Color(0xFF141622),
                 ),
-                _buildColorSwatchButton(
-                  'Deep Slate',
-                  const Color(0xFF0F172A),
-                ),
+                _buildColorSwatchButton('Deep Slate', const Color(0xFF0F172A)),
                 _buildColorSwatchButton(
                   'Obsidian Carbon',
                   const Color(0xFF18181B),
                 ),
-                _buildColorSwatchButton(
-                  'Forest Pine',
-                  const Color(0xFF062019),
-                ),
+                _buildColorSwatchButton('Forest Pine', const Color(0xFF062019)),
               ],
             ),
           ],

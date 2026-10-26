@@ -64,10 +64,7 @@ class WindowCaption extends StatelessWidget implements PreferredSizeWidget {
         children: <Widget>[
           if (isMacOS) SizedBox(width: macosTrafficLightsReservedWidth),
           if (leading != null)
-            Padding(
-              padding: const EdgeInsets.only(left: 8.0),
-              child: leading!,
-            ),
+            Padding(padding: const EdgeInsets.only(left: 8.0), child: leading!),
           Expanded(
             child: DragArea(
               child: Container(
@@ -75,7 +72,8 @@ class WindowCaption extends StatelessWidget implements PreferredSizeWidget {
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
                 child: DefaultTextStyle(
-                  style: theme.textTheme.titleSmall?.copyWith(
+                  style:
+                      theme.textTheme.titleSmall?.copyWith(
                         color: fgColor,
                         fontWeight: FontWeight.w600,
                       ) ??
@@ -87,10 +85,7 @@ class WindowCaption extends StatelessWidget implements PreferredSizeWidget {
           ),
           ...actions,
           if (!isMacOS && showWindowControls)
-            _WindowCaptionControls(
-              height: height,
-              foregroundColor: fgColor,
-            ),
+            _WindowCaptionControls(height: height, foregroundColor: fgColor),
         ],
       ),
     );
@@ -178,8 +173,7 @@ class _CaptionControlButtonState extends State<_CaptionControlButton> {
   @override
   Widget build(BuildContext context) {
     final Color bgColor = _hovered
-        ? (widget.hoverColor ??
-            widget.foregroundColor.withValues(alpha: 0.1))
+        ? (widget.hoverColor ?? widget.foregroundColor.withValues(alpha: 0.1))
         : Colors.transparent;
     final Color iconColor = _hovered
         ? (widget.hoverIconColor ?? widget.foregroundColor)
@@ -196,11 +190,7 @@ class _CaptionControlButtonState extends State<_CaptionControlButton> {
           height: widget.height,
           color: bgColor,
           alignment: Alignment.center,
-          child: Icon(
-            widget.icon,
-            size: 16,
-            color: iconColor,
-          ),
+          child: Icon(widget.icon, size: 16, color: iconColor),
         ),
       ),
     );

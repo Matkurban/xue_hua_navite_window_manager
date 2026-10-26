@@ -67,8 +67,8 @@ class _SnapLayoutButtonState extends State<SnapLayoutButton>
       setState(() => _isMaximized = cached.isMaximized);
     }
     try {
-      final WindowStateSnapshot fresh =
-          await XueHuaNaviteWindowManager.instance.getState();
+      final WindowStateSnapshot fresh = await XueHuaNaviteWindowManager.instance
+          .getState();
       if (mounted) {
         setState(() => _isMaximized = fresh.isMaximized);
       }
@@ -101,8 +101,8 @@ class _SnapLayoutButtonState extends State<SnapLayoutButton>
     if (!_isWindows || !widget.enabled) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !widget.enabled) return;
-      final RenderObject? renderObject =
-          _buttonKey.currentContext?.findRenderObject();
+      final RenderObject? renderObject = _buttonKey.currentContext
+          ?.findRenderObject();
       if (renderObject is RenderBox && renderObject.hasSize) {
         final Offset topLeft = renderObject.localToGlobal(Offset.zero);
         final Rect rect = topLeft & renderObject.size;

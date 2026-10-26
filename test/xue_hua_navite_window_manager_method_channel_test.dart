@@ -17,35 +17,35 @@ void main() {
     log.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
-      log.add(methodCall);
-      switch (methodCall.method) {
-        case 'configure':
-        case 'getState':
-          return <String, dynamic>{
-            'x': 100.0,
-            'y': 120.0,
-            'width': 1280.0,
-            'height': 800.0,
-            'isVisible': true,
-            'isMaximized': false,
-            'isMinimized': false,
-            'isFullScreen': false,
-            'isFocused': true,
-            'isAlwaysOnTop': false,
-            'isResizable': true,
-            'isPreventClose': true,
-          };
-        case 'getBounds':
-          return <String, dynamic>{
-            'x': 100.0,
-            'y': 120.0,
-            'width': 1280.0,
-            'height': 800.0,
-          };
-        default:
-          return null;
-      }
-    });
+          log.add(methodCall);
+          switch (methodCall.method) {
+            case 'configure':
+            case 'getState':
+              return <String, dynamic>{
+                'x': 100.0,
+                'y': 120.0,
+                'width': 1280.0,
+                'height': 800.0,
+                'isVisible': true,
+                'isMaximized': false,
+                'isMinimized': false,
+                'isFullScreen': false,
+                'isFocused': true,
+                'isAlwaysOnTop': false,
+                'isResizable': true,
+                'isPreventClose': true,
+              };
+            case 'getBounds':
+              return <String, dynamic>{
+                'x': 100.0,
+                'y': 120.0,
+                'width': 1280.0,
+                'height': 800.0,
+              };
+            default:
+              return null;
+          }
+        });
   });
 
   tearDown(() {
@@ -90,34 +90,34 @@ void main() {
     expect(args['preventClose'], true);
   });
 
-  test('startDragging and startResizing invoke corresponding native methods',
-      () async {
-    await platform.startDragging();
-    await platform.startResizing(ResizeEdge.bottomRight);
+  test(
+    'startDragging and startResizing invoke corresponding native methods',
+    () async {
+      await platform.startDragging();
+      await platform.startResizing(ResizeEdge.bottomRight);
 
-    expect(log, hasLength(2));
-    expect(log[0].method, 'startDragging');
-    expect(log[1].method, 'startResizing');
-    expect(
-      (log[1].arguments as Map<Object?, Object?>)['edge'],
-      'bottomRight',
-    );
-  });
+      expect(log, hasLength(2));
+      expect(log[0].method, 'startDragging');
+      expect(log[1].method, 'startResizing');
+      expect(
+        (log[1].arguments as Map<Object?, Object?>)['edge'],
+        'bottomRight',
+      );
+    },
+  );
 
-  test('setSnapLayoutButtonRect sends coordinates or disables when null',
-      () async {
-    await platform.setSnapLayoutButtonRect(const Rect.fromLTWH(900, 0, 46, 40));
-    await platform.setSnapLayoutButtonRect(null);
+  test(
+    'setSnapLayoutButtonRect sends coordinates or disables when null',
+    () async {
+      await platform.setSnapLayoutButtonRect(
+        const Rect.fromLTWH(900, 0, 46, 40),
+      );
+      await platform.setSnapLayoutButtonRect(null);
 
-    expect(log, hasLength(2));
-    expect(log[0].method, 'setSnapLayoutButtonRect');
-    expect(
-      (log[0].arguments as Map<Object?, Object?>)['enabled'],
-      true,
-    );
-    expect(
-      (log[1].arguments as Map<Object?, Object?>)['enabled'],
-      false,
-    );
-  });
+      expect(log, hasLength(2));
+      expect(log[0].method, 'setSnapLayoutButtonRect');
+      expect((log[0].arguments as Map<Object?, Object?>)['enabled'], true);
+      expect((log[1].arguments as Map<Object?, Object?>)['enabled'], false);
+    },
+  );
 }
