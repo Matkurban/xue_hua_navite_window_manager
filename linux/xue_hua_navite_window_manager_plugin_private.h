@@ -2,9 +2,5 @@
 
 #include "include/xue_hua_navite_window_manager/xue_hua_navite_window_manager_plugin.h"
 
-// This file exposes some plugin internals for unit testing. See
-// https://github.com/flutter/flutter/issues/88724 for current limitations
-// in the unit-testable API.
-
-// Handles the getPlatformVersion method call.
-FlMethodResponse *get_platform_version();
+// Exposes internal helper for unit tests when no GtkWindow is attached.
+FlMethodResponse* xue_hua_navite_window_manager_handle_ensure_initialized();

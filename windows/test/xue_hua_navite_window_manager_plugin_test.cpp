@@ -6,7 +6,6 @@
 
 #include <memory>
 #include <string>
-#include <variant>
 
 #include "xue_hua_navite_window_manager_plugin.h"
 
@@ -15,28 +14,22 @@ namespace test {
 
 namespace {
 
-using flutter::EncodableMap;
 using flutter::EncodableValue;
 using flutter::MethodCall;
 using flutter::MethodResultFunctions;
 
 }  // namespace
 
-TEST(XueHuaNaviteWindowManagerPlugin, GetPlatformVersion) {
+TEST(XueHuaNaviteWindowManagerPlugin, EnsureInitializedSucceeds) {
   XueHuaNaviteWindowManagerPlugin plugin;
-  // Save the reply value from the success callback.
-  std::string result_string;
+  bool succeeded = false;
   plugin.HandleMethodCall(
-      MethodCall("getPlatformVersion", std::make_unique<EncodableValue>()),
+      MethodCall("ensureInitialized", std::make_unique<EncodableValue>()),
       std::make_unique<MethodResultFunctions<>>(
-          [&result_string](const EncodableValue* result) {
-            result_string = std::get<std::string>(*result);
-          },
+          [&succeeded](const EncodableValue* result) { succeeded = true; },
           nullptr, nullptr));
 
-  // Since the exact string varies by host, just ensure that it's a string
-  // with the expected format.
-  EXPECT_TRUE(result_string.rfind("Windows ", 0) == 0);
+  EXPECT_TRUE(succeeded);
 }
 
 }  // namespace test

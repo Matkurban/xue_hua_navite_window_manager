@@ -1,17 +1,10 @@
 # xue_hua_navite_window_manager_example
 
-Demonstrates how to use the xue_hua_navite_window_manager plugin.
+Full-featured desktop studio example demonstrating the `xue_hua_navite_window_manager` plugin across **macOS**, **Windows**, and **Linux**:
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- **Zero-Flash First Frame** & atomic single-channel `NativeWindowController.configure(WindowConfig)` initialization
+- **Custom Frameless Title Bar** (`WindowCaption`, `DragArea`, `SnapLayoutButton`)
+- **Windows 11 Snap Layouts** (`HTMAXBUTTON` hit-test integration) & DWM native shadow / rounded corners
+- **macOS Traffic Lights Offset Controller** (`setTrafficLightsOffset`, `setTrafficLightsVisible`)
+- **Close Interception** (`preventClose: true` + confirmation dialog + `destroy()`)
+- **Real-time Event Stream Telemetry** (`WindowListener` & `EventChannel`)

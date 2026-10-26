@@ -1,24 +1,27 @@
-// This is a basic Flutter integration test.
-//
-// Since integration tests run in a full Flutter application, they can interact
-// with the host side of a plugin implementation, unlike Dart unit tests.
-//
-// For more information about Flutter integration tests, please see
-// https://flutter.dev/to/integration-testing
+import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-
 import 'package:xue_hua_navite_window_manager/xue_hua_navite_window_manager.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('getPlatformVersion test', (WidgetTester tester) async {
-    final XueHuaNaviteWindowManager plugin = XueHuaNaviteWindowManager();
-    final String? version = await plugin.getPlatformVersion();
-    // The version string depends on the host platform running the test, so
-    // just assert that some non-empty string is returned.
-    expect(version?.isNotEmpty, true);
+  testWidgets('NativeWindowController atomic configure integration test', (
+    WidgetTester tester,
+  ) async {
+    final WindowStateSnapshot snapshot = await NativeWindowController.configure(
+      const WindowConfig(
+        size: Size(1024, 720),
+        minSize: Size(640, 480),
+        center: true,
+        title: 'Integration Test Window',
+        titleBarStyle: TitleBarStyle.hidden,
+        trafficLightsOffset: Offset(16, 16),
+        showWhenReady: true,
+      ),
+    );
+    expect(snapshot.bounds.width, greaterThan(0));
+    expect(snapshot.bounds.height, greaterThan(0));
   });
 }
