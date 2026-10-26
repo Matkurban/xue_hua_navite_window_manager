@@ -1,0 +1,5 @@
+example/_manual_test/
+.dart_tool/
+**/build/
+example/**/build/
+example/.dart_tool/
