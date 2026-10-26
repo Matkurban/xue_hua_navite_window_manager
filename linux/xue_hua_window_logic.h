@@ -40,7 +40,8 @@ struct XueHuaMoveDragPlan {
 // grab serial. Compositors often accept that serial only while still
 // dispatching the button press, so DragArea uses
 // xue_hua_plan_interactive_press() and calls begin_move_drag inside the
-// GDK filter. X11 keeps this fallback, including CurrentTime.
+// button-press-event emission hook. X11 keeps this fallback, including
+// CurrentTime.
 XueHuaMoveDragPlan xue_hua_plan_move_drag(bool has_button_event,
                                           std::uint32_t button_event_time,
                                           std::uint32_t current_event_time,
@@ -94,7 +95,7 @@ bool xue_hua_region_contains(const XueHuaInteractiveRegion& region,
                              double x,
                              double y);
 
-// Wayland-only decision for a primary button press already in the GDK filter.
+// Wayland-only decision for a primary button press already in the press hook.
 // X11, non-primary buttons, and double-clicks return IGNORE so the existing
 // async path (and Flutter's double-click) stay responsible.
 // Overlapping regions: the smaller area wins. A resize region wins over a

@@ -50,7 +50,7 @@ struct _XueHuaNaviteWindowManagerPlugin {
   gboolean move_drag_active;
   gboolean resize_drag_active;
   gboolean warned_wayland_drag;
-  // Event time of a Wayland move/resize already started inside the GDK filter.
+  // Event time of a Wayland move/resize already started inside the button-press emission hook.
   // The matching async startDragging/startResizing call must not start again.
   guint32 sync_press_time;
   // XueHuaInteractiveRegion elements. Owned by the plugin.
@@ -66,7 +66,11 @@ struct _XueHuaNaviteWindowManagerPlugin {
   gulong realize_id;
   gulong hierarchy_id;
   gboolean view_signals_installed;
-  gboolean pointer_filter_installed;
+  // Wayland never invokes gdk_window_add_filter (X11-only). Capture presses
+  // with a button-press-event emission hook that runs on every backend before
+  // FlView's event_box handler returns TRUE.
+  gulong button_press_hook_id;
+  guint button_press_signal_id;
 };
 
 G_DEFINE_TYPE(XueHuaNaviteWindowManagerPlugin,
@@ -559,6 +563,9 @@ static bool view_local_from_button(XueHuaNaviteWindowManagerPlugin* self,
 // request is made before the press dispatch returns. A later method-channel
 // call often loses the grab. X11 is unchanged: this returns without calling
 // begin_move_drag, and startDragging keeps the async path.
+//
+// Must run during button-press-event emission (see the emission hook), not
+// from a GDK window filter: filters are applied only on the X11 backend.
 static void try_wayland_sync_gesture(XueHuaNaviteWindowManagerPlugin* self,
                                      GtkWindow* window,
                                      GdkEventButton* event) {
@@ -597,6 +604,10 @@ static void try_wayland_sync_gesture(XueHuaNaviteWindowManagerPlugin* self,
     self->move_drag_active = TRUE;
     self->resize_drag_active = FALSE;
     self->sync_press_time = timestamp;
+    g_info(
+        "xue_hua_navite_window_manager: Wayland sync begin_move_drag at "
+        "local (%.1f, %.1f) with press time %u",
+        local_x, local_y, timestamp);
     gtk_window_begin_move_drag(window, event->button, root_x, root_y,
                                timestamp);
     return;
@@ -612,6 +623,10 @@ static void try_wayland_sync_gesture(XueHuaNaviteWindowManagerPlugin* self,
   self->resize_drag_active = TRUE;
   self->move_drag_active = FALSE;
   self->sync_press_time = timestamp;
+  g_info(
+      "xue_hua_navite_window_manager: Wayland sync begin_resize_drag kind=%d "
+      "at local (%.1f, %.1f) with press time %u",
+      plan.kind, local_x, local_y, timestamp);
   gtk_window_begin_resize_drag(window, edge, event->button, root_x, root_y,
                                timestamp);
 }
@@ -661,48 +676,50 @@ static void upsert_interactive_region(XueHuaNaviteWindowManagerPlugin* self,
   if (present) {
     XueHuaInteractiveRegion stored = region;
     g_array_append_val(self->interactive_regions, stored);
+    g_info(
+        "xue_hua_navite_window_manager: registered interactive region id=%d "
+        "kind=%d rect=(%.1f, %.1f) %.1fx%.1f (count=%u)",
+        stored.id, stored.kind, stored.x, stored.y, stored.width, stored.height,
+        self->interactive_regions->len);
   }
 }
 
-static GdkFilterReturn on_pointer_filter(GdkXEvent* native_event,
-                                         GdkEvent* event,
-                                         gpointer user_data) {
-  (void)native_event;
-  if (event == nullptr || event->type != GDK_BUTTON_PRESS) {
-    return GDK_FILTER_CONTINUE;
+// gdk_window_add_filter only runs on X11 (see gdk/x11/gdkeventsource.c).
+// Wayland emits GdkEvents without consulting those filters, so the previous
+// global filter never saw presses under weston/Mutter and left last_mouse_time
+// unset. A button-press-event emission hook runs on every backend at the
+// start of emission — before FlView's event_box handler returns TRUE.
+static gboolean on_button_press_emission_hook(GSignalInvocationHint* ihint,
+                                              guint n_param_values,
+                                              const GValue* param_values,
+                                              gpointer user_data) {
+  (void)ihint;
+  if (n_param_values < 2 || param_values == nullptr || user_data == nullptr) {
+    return TRUE;
   }
   XueHuaNaviteWindowManagerPlugin* self =
       XUE_HUA_NAVITE_WINDOW_MANAGER_PLUGIN(user_data);
+  GtkWidget* widget = GTK_WIDGET(g_value_get_object(&param_values[0]));
+  GdkEvent* event = static_cast<GdkEvent*>(g_value_get_boxed(&param_values[1]));
+  if (widget == nullptr || event == nullptr ||
+      event->type != GDK_BUTTON_PRESS) {
+    return TRUE;
+  }
   if (self->hooked_window == nullptr || !GTK_IS_WINDOW(self->hooked_window)) {
-    return GDK_FILTER_CONTINUE;
+    try_hook_window(self);
   }
-  GdkWindow* event_window = event->button.window;
-  if (event_window == nullptr) {
-    return GDK_FILTER_CONTINUE;
+  if (self->hooked_window == nullptr || !GTK_IS_WINDOW(self->hooked_window)) {
+    return TRUE;
   }
-  gboolean belongs = FALSE;
-  gpointer widget_ptr = nullptr;
-  gdk_window_get_user_data(event_window, &widget_ptr);
-  if (GTK_IS_WIDGET(widget_ptr)) {
-    GtkWidget* top = gtk_widget_get_toplevel(GTK_WIDGET(widget_ptr));
-    belongs = top == GTK_WIDGET(self->hooked_window);
-  } else {
-    GdkWindow* ours = gtk_widget_get_window(GTK_WIDGET(self->hooked_window));
-    if (ours != nullptr) {
-      belongs = gdk_window_get_toplevel(event_window) ==
-                gdk_window_get_toplevel(ours);
-    }
+  GtkWidget* top = gtk_widget_get_toplevel(widget);
+  if (top != GTK_WIDGET(self->hooked_window)) {
+    return TRUE;
   }
-  if (!belongs) {
-    return GDK_FILTER_CONTINUE;
-  }
-  // Widget button-press-event often never runs: FlView consumes the press.
-  // The GDK filter still sees the event time Wayland needs as a seat serial.
-  // On Wayland, also start the interactive move/resize here, while GDK's
-  // implicit grab serial is the one the compositor will accept.
+  // FlView's GtkEventBox owns the press. Capture the seat serial and, on
+  // Wayland, start move/resize before that handler finishes.
   remember_button_press(self, &event->button);
   try_wayland_sync_gesture(self, self->hooked_window, &event->button);
-  return GDK_FILTER_CONTINUE;
+  return TRUE;
 }
 
 static GtkWindow* get_main_window(XueHuaNaviteWindowManagerPlugin* self) {
@@ -851,8 +868,8 @@ static gboolean prepare_move_drag(XueHuaNaviteWindowManagerPlugin* self,
           "xue_hua_navite_window_manager: skipped async "
           "startDragging/startResizing on Wayland because no button-press "
           "serial was captured. DragArea and WindowResizeEdgeArea start the "
-          "gesture inside the press event; a later method-channel call cannot "
-          "be honored once that serial is gone.");
+          "gesture inside the button-press emission hook; a later "
+          "method-channel call cannot be honored once that serial is gone.");
     }
     return FALSE;
   }
@@ -1237,7 +1254,7 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
     gint root_x = 0;
     gint root_y = 0;
     gint button = 1;
-    // Wayland DragArea already called begin_move_drag inside the press filter.
+    // Wayland DragArea already called begin_move_drag inside the press hook.
     if (!async_drag_already_synced(self, window) &&
         prepare_move_drag(self, window, &timestamp, &root_x, &root_y,
                           &button)) {
@@ -1338,9 +1355,10 @@ static void xue_hua_navite_window_manager_plugin_dispose(GObject* object) {
   XueHuaNaviteWindowManagerPlugin* self =
       XUE_HUA_NAVITE_WINDOW_MANAGER_PLUGIN(object);
 
-  if (self->pointer_filter_installed) {
-    gdk_window_remove_filter(nullptr, on_pointer_filter, self);
-    self->pointer_filter_installed = FALSE;
+  if (self->button_press_hook_id != 0 && self->button_press_signal_id != 0) {
+    g_signal_remove_emission_hook(self->button_press_signal_id,
+                                  self->button_press_hook_id);
+    self->button_press_hook_id = 0;
   }
   if (self->interactive_regions != nullptr) {
     g_array_free(self->interactive_regions, TRUE);
@@ -1397,9 +1415,18 @@ void xue_hua_navite_window_manager_plugin_register_with_registrar(
   }
   watch_view(plugin);
 
-  if (!plugin->pointer_filter_installed) {
-    gdk_window_add_filter(nullptr, on_pointer_filter, plugin);
-    plugin->pointer_filter_installed = TRUE;
+  if (plugin->button_press_hook_id == 0) {
+    plugin->button_press_signal_id =
+        g_signal_lookup("button-press-event", GTK_TYPE_WIDGET);
+    if (plugin->button_press_signal_id != 0) {
+      plugin->button_press_hook_id = g_signal_add_emission_hook(
+          plugin->button_press_signal_id, 0, on_button_press_emission_hook,
+          plugin, nullptr);
+    } else {
+      g_warning(
+          "xue_hua_navite_window_manager: button-press-event signal missing; "
+          "Wayland sync drag will not work.");
+    }
   }
 
   g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();

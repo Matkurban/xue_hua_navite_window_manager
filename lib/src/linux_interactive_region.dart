@@ -8,8 +8,8 @@ import 'xue_hua_navite_window_manager_controller.dart';
 /// Publishes a widget's global rect to the Linux plugin so a later button
 /// press can start a move or resize without a method-channel round trip.
 ///
-/// Layout updates happen before the click. The native GDK filter hit-tests
-/// these rects while the Wayland seat serial is still valid.
+/// Layout updates happen before the click. The native button-press emission
+/// hook hit-tests these rects while the Wayland seat serial is still valid.
 class LinuxInteractiveRegionBinding {
   /// Creates a binding for [id] from [XueHuaNaviteWindowManager.allocateLinuxInteractiveRegionId].
   LinuxInteractiveRegionBinding(this.id);

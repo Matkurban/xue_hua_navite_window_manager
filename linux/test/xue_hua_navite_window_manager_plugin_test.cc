@@ -120,7 +120,7 @@ TEST(XueHuaWindowLogic, X11PressDoesNotStealAsyncDrag) {
       true, false, false, 20.0, 10.0, regions, 1);
   EXPECT_EQ(secondary.action, XUE_HUA_PRESS_IGNORE);
 
-  // Double-click stays with Flutter. The filter must not start a move.
+  // Double-click stays with Flutter. The press hook must not start a move.
   const XueHuaPressPlan dbl = xue_hua_plan_interactive_press(
       true, true, true, 20.0, 10.0, regions, 1);
   EXPECT_EQ(dbl.action, XUE_HUA_PRESS_IGNORE);
