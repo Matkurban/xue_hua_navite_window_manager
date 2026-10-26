@@ -14,6 +14,7 @@ set(PLUGIN_NAME "xue_hua_navite_window_manager_plugin")
 # Any new source files that you add to the plugin should be added here.
 list(APPEND PLUGIN_SOURCES
   "xue_hua_navite_window_manager_plugin.cc"
+  "xue_hua_window_logic.cc"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment
