@@ -1,3 +1,9 @@
+## 1.0.2
+
+* **Material import:** `WindowCaption` now imports `package:material_ui/material_ui.dart`. `package:flutter/material.dart` is deprecated on Flutter 3.50 and produced an analyzer warning.
+* **Narrow client areas:** `WindowCaption` clips an oversized title and hides or scales the trailing controls instead of painting a RenderFlex overflow when the window is only a couple hundred pixels wide (for example during a minimize animation). The example Studio cards scroll or ellipsize the same way.
+* **Windows caption maximize:** a left click on the `WindowCaption` / `SnapLayoutButton` maximize control toggles maximize again. `WM_NCHITTEST` still returns `HTMAXBUTTON` so Windows 11 Snap Layouts can open on hover, but that non-client hit never reaches Flutter's `onTap`, and `WM_NCLBUTTONUP` was not a reliable release signal after the non-client press was swallowed. The plugin now arms the press, captures the mouse, and posts `snapButtonClicked` when the button is released inside the control. `SnapLayoutButton` still performs the default `toggleMaximize()` from that event.
+
 ## 1.0.1
 
 * **Wayland drag**: `DragArea` and `WindowResizeEdgeArea` register their layout rects, and the Linux GDK filter calls `gtk_window_begin_move_drag` / `gtk_window_begin_resize_drag` inside the button-press event. GTK3 Wayland ignores the timestamp argument and sends the seat's implicit-grab serial, which compositors generally accept only during that dispatch. X11 still uses the async method-channel path, including the `GDK_CURRENT_TIME` fallback.

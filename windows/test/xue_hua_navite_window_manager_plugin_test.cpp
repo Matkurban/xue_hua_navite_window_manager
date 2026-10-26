@@ -20,6 +20,37 @@ using flutter::MethodResultFunctions;
 
 }  // namespace
 
+TEST(SnapButtonHitTest, ActivatesOnlyWhenArmedReleaseStaysInside) {
+  EXPECT_FALSE(ShouldActivateSnapButton(false, true, true));
+  EXPECT_FALSE(ShouldActivateSnapButton(true, false, true));
+  EXPECT_FALSE(ShouldActivateSnapButton(true, true, false));
+  EXPECT_TRUE(ShouldActivateSnapButton(true, true, true));
+}
+
+TEST(SnapButtonHitTest, ReportsHtMaxButtonOnlyForCustomFrames) {
+  const LogicalRect rect{900.0, 0.0, 46.0, 40.0};
+
+  EXPECT_TRUE(
+      ShouldReportSnapButtonHit(true, false, "hidden", rect, 920.0, 10.0));
+  EXPECT_TRUE(
+      ShouldReportSnapButtonHit(true, false, "immersive", rect, 945.0, 39.0));
+  // Contains() is half-open on the right and bottom edges.
+  EXPECT_FALSE(
+      ShouldReportSnapButtonHit(true, false, "hidden", rect, 946.0, 10.0));
+  EXPECT_FALSE(
+      ShouldReportSnapButtonHit(true, false, "hidden", rect, 920.0, 40.0));
+  EXPECT_FALSE(
+      ShouldReportSnapButtonHit(true, false, "normal", rect, 920.0, 10.0));
+  EXPECT_FALSE(
+      ShouldReportSnapButtonHit(true, true, "hidden", rect, 920.0, 10.0));
+  EXPECT_FALSE(
+      ShouldReportSnapButtonHit(false, false, "hidden", rect, 920.0, 10.0));
+
+  const LogicalRect empty{0.0, 0.0, 0.0, 40.0};
+  EXPECT_FALSE(
+      ShouldReportSnapButtonHit(true, false, "hidden", empty, 0.0, 10.0));
+}
+
 TEST(XueHuaNaviteWindowManagerPlugin, EnsureInitializedSucceeds) {
   XueHuaNaviteWindowManagerPlugin plugin;
   bool succeeded = false;

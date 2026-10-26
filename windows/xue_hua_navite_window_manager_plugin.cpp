@@ -32,6 +32,10 @@ namespace {
 
 constexpr UINT_PTR kWindowSubclassId = 0x5848574D;  // 'XHWM'
 
+// Posted after the snap-button release so the Dart listener does not run
+// nested inside the mouse-up / SetCapture handler.
+constexpr UINT kSnapButtonInvokeMessage = WM_APP + 0x58;
+
 // Windows 11 DWM_WINDOW_CORNER_PREFERENCE values
 constexpr DWORD kDwmwcpDefault = 0;
 constexpr DWORD kDwmwcpDoNotRound = 1;
@@ -346,15 +350,22 @@ LRESULT XueHuaNaviteWindowManagerPlugin::HandleWindowMessage(
           if (on_bottom) return HTBOTTOM;
         }
 
-        // Convert screen cursor to logical client coordinates (DIP).
-        POINT client_pt = cursor_screen;
-        ScreenToClient(hwnd, &client_pt);
-        const double cursor_dip_x = PhysicalToDip(client_pt.x, scale);
-        const double cursor_dip_y = PhysicalToDip(client_pt.y, scale);
+        // Flutter's `localToGlobal` origin is the view HWND, which is not
+        // always the root client origin (child view offset / extended frame).
+        double cursor_dip_x = 0.0;
+        double cursor_dip_y = 0.0;
+        if (!ScreenToViewDip(hwnd, cursor_screen, &cursor_dip_x,
+                             &cursor_dip_y)) {
+          break;
+        }
 
-        // 3b. Check Windows 11 Snap Layouts maximize button rect (`HTMAXBUTTON`).
-        if (snap_button_enabled_ &&
-            snap_button_rect_.Contains(cursor_dip_x, cursor_dip_y)) {
+        // 3b. Windows 11 Snap Layouts maximize button (`HTMAXBUTTON`).
+        // Hover keeps returning HTMAXBUTTON so DWM can show the snap flyout.
+        // The click itself is completed in ArmSnapButtonPress / FinishSnapButtonPress
+        // because this non-client hit never reaches Flutter's GestureDetector.
+        if (ShouldReportSnapButtonHit(snap_button_enabled_, is_fullscreen_,
+                                       title_bar_style_, snap_button_rect_,
+                                       cursor_dip_x, cursor_dip_y)) {
           if (!is_snap_button_hovered_) {
             is_snap_button_hovered_ = true;
             EmitWindowEvent("snapButtonHovered", hwnd);
@@ -385,21 +396,54 @@ LRESULT XueHuaNaviteWindowManagerPlugin::HandleWindowMessage(
       break;
     }
 
-    // 4. Forward Clicks on HTMAXBUTTON to Dart while Preserving Snap Layouts Hover Flyout
+    // 4. Maximize clicks. Returning HTMAXBUTTON makes the press non-client, so
+    // Flutter's onTap never runs. DefWindowProc(WM_NCLBUTTONDOWN, HTMAXBUTTON)
+    // paints the system caption glyph and does not reliably deliver
+    // WM_NCLBUTTONUP on a caption-less frame (the release arrives as
+    // WM_LBUTTONUP, or not at all). Arm the press, capture the mouse, and
+    // post snapButtonClicked only if the release is still inside the button.
+    // Snap Layouts hover is unchanged: WM_NCHITTEST still returns HTMAXBUTTON.
     case WM_NCLBUTTONDOWN: {
       if (wParam == HTMAXBUTTON && snap_button_enabled_) {
-        // Swallow default Win32 non-client button painting so Flutter renders its own visual.
+        ArmSnapButtonPress(hwnd);
         return 0;
       }
       break;
     }
 
     case WM_NCLBUTTONUP: {
-      if (wParam == HTMAXBUTTON && snap_button_enabled_) {
-        EmitWindowEvent("snapButtonClicked", hwnd);
+      if (snap_button_pressed_ ||
+          (wParam == HTMAXBUTTON && snap_button_enabled_)) {
+        if (!snap_button_pressed_) {
+          snap_button_pressed_ = true;
+        }
+        FinishSnapButtonPress(hwnd);
         return 0;
       }
       break;
+    }
+
+    case WM_LBUTTONUP: {
+      if (snap_button_pressed_) {
+        FinishSnapButtonPress(hwnd);
+        return 0;
+      }
+      break;
+    }
+
+    case WM_CAPTURECHANGED: {
+      // ReleaseCapture from FinishSnapButtonPress clears the flag first.
+      // A capture stolen by another window cancels the click.
+      snap_button_pressed_ = false;
+      break;
+    }
+
+    case kSnapButtonInvokeMessage: {
+      snap_click_posted_ = false;
+      if (snap_button_enabled_) {
+        EmitWindowEvent("snapButtonClicked", hwnd);
+      }
+      return 0;
     }
 
     case WM_NCMOUSELEAVE:
@@ -1142,6 +1186,72 @@ void XueHuaNaviteWindowManagerPlugin::StartNativeResizing(
     ReleaseCapture();
     SendMessageW(hwnd, WM_NCLBUTTONDOWN, hit_target, 0);
   }
+}
+
+bool XueHuaNaviteWindowManagerPlugin::ScreenToViewDip(HWND hwnd,
+                                                         POINT screen_pt,
+                                                         double* x,
+                                                         double* y) const {
+  if (x == nullptr || y == nullptr) {
+    return false;
+  }
+  HWND target = hwnd;
+  if (registrar_ != nullptr && registrar_->GetView() != nullptr) {
+    HWND view = registrar_->GetView()->GetNativeWindow();
+    if (view != nullptr && IsWindow(view)) {
+      target = view;
+    }
+  }
+  POINT client = screen_pt;
+  if (!ScreenToClient(target, &client)) {
+    return false;
+  }
+  const double scale = GetScaleFactor(hwnd);
+  *x = PhysicalToDip(client.x, scale);
+  *y = PhysicalToDip(client.y, scale);
+  return true;
+}
+
+bool XueHuaNaviteWindowManagerPlugin::CursorInSnapButton(
+    HWND hwnd,
+    POINT screen_pt) const {
+  double x = 0.0;
+  double y = 0.0;
+  if (!ScreenToViewDip(hwnd, screen_pt, &x, &y)) {
+    return false;
+  }
+  return snap_button_rect_.Contains(x, y);
+}
+
+void XueHuaNaviteWindowManagerPlugin::ArmSnapButtonPress(HWND hwnd) {
+  snap_button_pressed_ = true;
+  // Capture so the release cannot be dropped when DefWindowProc is not called
+  // for HTMAXBUTTON. The Snap Layouts flyout is a separate process and still
+  // receives clicks that start on the flyout itself (hover, then click a zone).
+  SetCapture(hwnd);
+}
+
+void XueHuaNaviteWindowManagerPlugin::FinishSnapButtonPress(HWND hwnd) {
+  if (!snap_button_pressed_) {
+    return;
+  }
+  POINT screen_pt{};
+  GetCursorPos(&screen_pt);
+  const bool inside = CursorInSnapButton(hwnd, screen_pt);
+  // Clear before ReleaseCapture. That call synchronously delivers
+  // WM_CAPTURECHANGED, which must not cancel a click we already accepted.
+  snap_button_pressed_ = false;
+  if (GetCapture() == hwnd) {
+    ReleaseCapture();
+  }
+  if (!ShouldActivateSnapButton(snap_button_enabled_, true, inside)) {
+    return;
+  }
+  if (snap_click_posted_) {
+    return;
+  }
+  snap_click_posted_ = true;
+  PostMessageW(hwnd, kSnapButtonInvokeMessage, 0, 0);
 }
 
 void XueHuaNaviteWindowManagerPlugin::EmitWindowEvent(const std::string& type,

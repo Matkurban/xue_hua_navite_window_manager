@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
@@ -251,113 +252,158 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
       backgroundColor: activeBgColor,
       body: WindowResizeEdgeArea(
         enabled: _resizable && !_isMaximized && !_isFullScreen,
-        child: Column(
-          children: <Widget>[
-            // Custom Frameless Title Bar with DragArea & Windows 11 SnapLayoutButton
-            WindowCaption(
-              height: 44,
-              macosTrafficLightsReservedWidth:
-                  _trafficLightsVisible && !_isFullScreen
-                  ? (_trafficLightsX + 68.0)
-                  : 12.0,
-              backgroundColor: colorScheme.surfaceContainer,
-              foregroundColor: colorScheme.onSurface,
-              title: Row(
-                children: <Widget>[
-                  Icon(
-                    Icons.desktop_windows_rounded,
-                    size: 18,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'XueHua Native Window Manager Studio',
-                    style: textTheme.titleSmall,
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _isFocused
-                          ? colorScheme.primaryContainer
-                          : colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      _isFocused ? 'ACTIVE' : 'BLURRED',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: _isFocused
-                            ? colorScheme.onPrimaryContainer
-                            : colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              actions: <Widget>[
-                IconButton(
-                  tooltip: 'Center Window (1240x820)',
-                  icon: Icon(
-                    Icons.filter_center_focus,
-                    size: 18,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: () => _windowManager.center(
-                    size: const Size(1240, 820),
-                    animate: true,
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Toggle FullScreen',
-                  icon: Icon(
-                    _isFullScreen
-                        ? Icons.fullscreen_exit_rounded
-                        : Icons.fullscreen_rounded,
-                    size: 20,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: () => _windowManager.setFullScreen(!_isFullScreen),
-                ),
-                const SizedBox(width: 4),
-              ],
-            ),
-            Divider(height: 1, color: theme.dividerColor),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Expanded(
-                    flex: 7,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          _buildStatusTelemetryCard(context),
-                          const SizedBox(height: 16),
-                          _buildAtomicPresetsCard(context),
-                          const SizedBox(height: 16),
-                          _buildTitleBarAndTrafficLightsCard(context),
-                          const SizedBox(height: 16),
-                          _buildBehaviorAndAppearanceCard(
-                            context,
-                            activeBgColor,
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final double maxHeight = constraints.maxHeight;
+            final double captionHeight = maxHeight.isFinite
+                ? math.min(44.0, math.max(0.0, maxHeight))
+                : 44.0;
+            final bool showBody =
+                !maxHeight.isFinite || maxHeight > captionHeight + 1.0;
+            return Column(
+              children: <Widget>[
+                // Custom Frameless Title Bar with DragArea & Windows 11 SnapLayoutButton
+                SizedBox(
+                  height: captionHeight,
+                  width: constraints.maxWidth.isFinite
+                      ? constraints.maxWidth
+                      : null,
+                  child: WindowCaption(
+                    height: captionHeight,
+                    macosTrafficLightsReservedWidth:
+                        _trafficLightsVisible && !_isFullScreen
+                        ? (_trafficLightsX + 68.0)
+                        : 12.0,
+                    backgroundColor: colorScheme.surfaceContainer,
+                    foregroundColor: colorScheme.onSurface,
+                    title: Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.desktop_windows_rounded,
+                          size: 18,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'XueHua Native Window Manager Studio',
+                          style: textTheme.titleSmall,
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
                           ),
-                          const SizedBox(height: 16),
-                          _buildDragAndEdgeResizeCard(context),
-                        ],
+                          decoration: BoxDecoration(
+                            color: _isFocused
+                                ? colorScheme.primaryContainer
+                                : colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _isFocused ? 'ACTIVE' : 'BLURRED',
+                            style: textTheme.labelSmall?.copyWith(
+                              color: _isFocused
+                                  ? colorScheme.onPrimaryContainer
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    actions: <Widget>[
+                      IconButton(
+                        tooltip: 'Center Window (1240x820)',
+                        icon: Icon(
+                          Icons.filter_center_focus,
+                          size: 18,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: () => _windowManager.center(
+                          size: const Size(1240, 820),
+                          animate: true,
+                        ),
                       ),
+                      IconButton(
+                        tooltip: 'Toggle FullScreen',
+                        icon: Icon(
+                          _isFullScreen
+                              ? Icons.fullscreen_exit_rounded
+                              : Icons.fullscreen_rounded,
+                          size: 20,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: () =>
+                            _windowManager.setFullScreen(!_isFullScreen),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                  ),
+                ),
+                if (showBody) Divider(height: 1, color: theme.dividerColor),
+                if (showBody)
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Expanded(
+                          flex: 7,
+                          child: LayoutBuilder(
+                            builder:
+                                (
+                                  BuildContext context,
+                                  BoxConstraints paneConstraints,
+                                ) {
+                                  final double paneWidth =
+                                      paneConstraints.maxWidth;
+                                  final double contentWidth = paneWidth.isFinite
+                                      ? math.max(paneWidth, 480.0)
+                                      : 480.0;
+                                  return SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: SizedBox(
+                                      width: contentWidth,
+                                      child: SingleChildScrollView(
+                                        padding: const EdgeInsets.all(20),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: <Widget>[
+                                            _buildStatusTelemetryCard(context),
+                                            const SizedBox(height: 16),
+                                            _buildAtomicPresetsCard(context),
+                                            const SizedBox(height: 16),
+                                            _buildTitleBarAndTrafficLightsCard(
+                                              context,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            _buildBehaviorAndAppearanceCard(
+                                              context,
+                                              activeBgColor,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            _buildDragAndEdgeResizeCard(
+                                              context,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                          ),
+                        ),
+                        VerticalDivider(width: 1, color: theme.dividerColor),
+                        Expanded(
+                          flex: 4,
+                          child: _buildEventStreamPanel(context),
+                        ),
+                      ],
                     ),
                   ),
-                  VerticalDivider(width: 1, color: theme.dividerColor),
-                  Expanded(flex: 4, child: _buildEventStreamPanel(context)),
-                ],
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -375,21 +421,49 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(Icons.speed_rounded, color: colorScheme.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Live Window Geometry & State Telemetry',
-                  style: textTheme.titleMedium,
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: _refreshWindowState,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Sync State'),
-                ),
-              ],
+            LayoutBuilder(
+              builder:
+                  (BuildContext context, BoxConstraints headerConstraints) {
+                    final Widget syncButton = TextButton.icon(
+                      onPressed: _refreshWindowState,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Sync State'),
+                    );
+                    if (headerConstraints.maxWidth < 480) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Live Window Geometry & State Telemetry',
+                            style: textTheme.titleMedium,
+                          ),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: syncButton,
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: <Widget>[
+                        Icon(Icons.speed_rounded, color: colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Live Window Geometry & State Telemetry',
+                            style: textTheme.titleMedium,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        syncButton,
+                      ],
+                    );
+                  },
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -603,41 +677,44 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
               style: textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Text('TitleBarStyle: ', style: textTheme.bodyMedium),
-                const SizedBox(width: 12),
-                SegmentedButton<TitleBarStyle>(
-                  segments: const <ButtonSegment<TitleBarStyle>>[
-                    ButtonSegment<TitleBarStyle>(
-                      value: TitleBarStyle.normal,
-                      label: Text('Normal'),
-                    ),
-                    ButtonSegment<TitleBarStyle>(
-                      value: TitleBarStyle.hidden,
-                      label: Text('Hidden'),
-                    ),
-                    ButtonSegment<TitleBarStyle>(
-                      value: TitleBarStyle.immersive,
-                      label: Text('Immersive'),
-                    ),
-                  ],
-                  selected: <TitleBarStyle>{_titleBarStyle},
-                  onSelectionChanged: (Set<TitleBarStyle> selection) {
-                    final TitleBarStyle style = selection.first;
-                    setState(() => _titleBarStyle = style);
-                    _windowManager.setTitleBarStyle(
-                      style,
-                      trafficLightsOffset: Offset(
-                        _trafficLightsX,
-                        _trafficLightsY,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: <Widget>[
+                  Text('TitleBarStyle: ', style: textTheme.bodyMedium),
+                  const SizedBox(width: 12),
+                  SegmentedButton<TitleBarStyle>(
+                    segments: const <ButtonSegment<TitleBarStyle>>[
+                      ButtonSegment<TitleBarStyle>(
+                        value: TitleBarStyle.normal,
+                        label: Text('Normal'),
                       ),
-                      trafficLightsVisible: _trafficLightsVisible,
-                    );
-                    _appendLog('setTitleBarStyle(${style.wireValue})');
-                  },
-                ),
-              ],
+                      ButtonSegment<TitleBarStyle>(
+                        value: TitleBarStyle.hidden,
+                        label: Text('Hidden'),
+                      ),
+                      ButtonSegment<TitleBarStyle>(
+                        value: TitleBarStyle.immersive,
+                        label: Text('Immersive'),
+                      ),
+                    ],
+                    selected: <TitleBarStyle>{_titleBarStyle},
+                    onSelectionChanged: (Set<TitleBarStyle> selection) {
+                      final TitleBarStyle style = selection.first;
+                      setState(() => _titleBarStyle = style);
+                      _windowManager.setTitleBarStyle(
+                        style,
+                        trafficLightsOffset: Offset(
+                          _trafficLightsX,
+                          _trafficLightsY,
+                        ),
+                        trafficLightsVisible: _trafficLightsVisible,
+                      );
+                      _appendLog('setTitleBarStyle(${style.wireValue})');
+                    },
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 14),
             Row(
@@ -957,57 +1034,99 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
     final ColorScheme colorScheme = theme.colorScheme;
     final TextTheme textTheme = theme.textTheme;
 
-    return Container(
-      color: colorScheme.surfaceContainerLow,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints panelConstraints) {
+        if (panelConstraints.maxHeight.isFinite &&
+            panelConstraints.maxHeight < 72) {
+          return const SizedBox.shrink();
+        }
+        return Container(
+          color: colorScheme.surfaceContainerLow,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Icon(
-                Icons.terminal_rounded,
-                size: 18,
-                color: colorScheme.primary,
+              LayoutBuilder(
+                builder:
+                    (BuildContext context, BoxConstraints headerConstraints) {
+                      final Widget clearButton = TextButton(
+                        onPressed: () => setState(_eventLogs.clear),
+                        child: Text('Clear', style: textTheme.labelMedium),
+                      );
+                      if (headerConstraints.maxWidth < 220) {
+                        return FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(
+                                Icons.terminal_rounded,
+                                size: 18,
+                                color: colorScheme.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Native EventChannel Stream',
+                                style: textTheme.titleSmall,
+                              ),
+                              clearButton,
+                            ],
+                          ),
+                        );
+                      }
+                      return Row(
+                        children: <Widget>[
+                          Icon(
+                            Icons.terminal_rounded,
+                            size: 18,
+                            color: colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Native EventChannel Stream',
+                              style: textTheme.titleSmall,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                          clearButton,
+                        ],
+                      );
+                    },
               ),
-              const SizedBox(width: 8),
-              Text('Native EventChannel Stream', style: textTheme.titleSmall),
-              const Spacer(),
-              TextButton(
-                onPressed: () => setState(_eventLogs.clear),
-                child: Text('Clear', style: textTheme.labelMedium),
+              Divider(color: theme.dividerColor),
+              Expanded(
+                child: _eventLogs.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Move, resize, maximize, focus, or click close to inspect real-time native events.',
+                          textAlign: TextAlign.center,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _eventLogs.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Text(
+                              _eventLogs[index],
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
-          Divider(color: theme.dividerColor),
-          Expanded(
-            child: _eventLogs.isEmpty
-                ? Center(
-                    child: Text(
-                      'Move, resize, maximize, focus, or click close to inspect real-time native events.',
-                      textAlign: TextAlign.center,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _eventLogs.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Text(
-                          _eventLogs[index],
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

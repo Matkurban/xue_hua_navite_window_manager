@@ -145,7 +145,7 @@ gtk_widget_grab_focus(GTK_WIDGET(view));
 ### 1. 原子化窗口初始化 (`main.dart`)
 
 ```dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:xue_hua_navite_window_manager/xue_hua_navite_window_manager.dart';
 
 Future<void> main() async {

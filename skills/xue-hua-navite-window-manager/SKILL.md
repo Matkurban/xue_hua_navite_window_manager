@@ -30,7 +30,7 @@ Provide idiomatic integration patterns, native Runner setup, platform difference
 ### 1. Zero-Flash Atomic Initialization in `main.dart`
 
 ```dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:xue_hua_navite_window_manager/xue_hua_navite_window_manager.dart';
 
 Future<void> main() async {

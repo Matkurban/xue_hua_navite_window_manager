@@ -1,11 +1,15 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../xue_hua_navite_window_manager_controller.dart';
 import 'drag_area.dart';
 import 'snap_layout_button.dart';
+
+/// Width of one minimize / maximize / close slot.
+const double _kCaptionControlWidth = 46.0;
 
 /// A ready-to-use cross-platform custom title bar widget (`WindowCaption`)
 /// that adapts to macOS (reserving space for Traffic Lights) and Windows/Linux
@@ -57,37 +61,100 @@ class WindowCaption extends StatelessWidget implements PreferredSizeWidget {
     final ThemeData theme = Theme.of(context);
     final Color fgColor = foregroundColor ?? theme.colorScheme.onSurface;
 
-    return Container(
-      height: height,
-      color: backgroundColor ?? Colors.transparent,
-      child: Row(
-        children: <Widget>[
-          if (isMacOS) SizedBox(width: macosTrafficLightsReservedWidth),
-          if (leading != null)
-            Padding(padding: const EdgeInsets.only(left: 8.0), child: leading!),
-          Expanded(
-            child: DragArea(
-              child: Container(
-                height: height,
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                child: DefaultTextStyle(
-                  style:
-                      theme.textTheme.titleSmall?.copyWith(
-                        color: fgColor,
-                        fontWeight: FontWeight.w600,
-                      ) ??
-                      TextStyle(color: fgColor, fontSize: 13),
-                  child: title ?? const SizedBox.shrink(),
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double barHeight = constraints.maxHeight.isFinite
+            ? math.min(height, math.max(0.0, constraints.maxHeight))
+            : height;
+        if (barHeight <= 0) {
+          return const SizedBox.shrink();
+        }
+
+        final double width = constraints.maxWidth;
+        final bool bounded = width.isFinite;
+        final double macInset = isMacOS
+            ? (bounded
+                  ? math.min(
+                      macosTrafficLightsReservedWidth,
+                      math.max(0.0, width),
+                    )
+                  : macosTrafficLightsReservedWidth)
+            : 0.0;
+        final bool showControls = !isMacOS && showWindowControls;
+        final double controlsWidth = showControls
+            ? _kCaptionControlWidth * 3
+            : 0.0;
+        // 48dp is the Material tap target. Hiding actions before that budget
+        // is exhausted keeps the caption's own Row from overflowing when the
+        // client area collapses (minimize animation, ~159px).
+        final double estimatedActions = 48.0 * actions.length;
+        final double available = bounded
+            ? math.max(0.0, width - macInset)
+            : double.infinity;
+        final bool showActions =
+            actions.isNotEmpty &&
+            available >= controlsWidth + estimatedActions + 32.0;
+        final bool showLeading =
+            leading != null &&
+            available >= controlsWidth + estimatedActions + 80.0;
+        final bool scaleControls = showControls && available < controlsWidth;
+
+        final Widget controls = _WindowCaptionControls(
+          height: barHeight,
+          foregroundColor: fgColor,
+        );
+
+        return ColoredBox(
+          color: backgroundColor ?? Colors.transparent,
+          child: SizedBox(
+            height: barHeight,
+            width: bounded ? width : null,
+            child: Row(
+              children: <Widget>[
+                if (macInset > 0) SizedBox(width: macInset),
+                if (showLeading)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8.0),
+                    child: leading!,
+                  ),
+                Expanded(
+                  child: DragArea(
+                    child: ClipRect(
+                      child: DefaultTextStyle(
+                        style:
+                            theme.textTheme.titleSmall?.copyWith(
+                              color: fgColor,
+                              fontWeight: FontWeight.w600,
+                            ) ??
+                            TextStyle(color: fgColor, fontSize: 13),
+                        child: OverflowBox(
+                          alignment: Alignment.centerLeft,
+                          minWidth: 0,
+                          maxWidth: double.infinity,
+                          minHeight: 0,
+                          maxHeight: barHeight,
+                          child: title ?? const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                if (showActions) ...actions,
+                if (showControls)
+                  scaleControls
+                      ? Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: controls,
+                          ),
+                        )
+                      : controls,
+              ],
             ),
           ),
-          ...actions,
-          if (!isMacOS && showWindowControls)
-            _WindowCaptionControls(height: height, foregroundColor: fgColor),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -116,7 +183,7 @@ class _WindowCaptionControls extends StatelessWidget {
         SnapLayoutButton(
           builder: (BuildContext context, bool isHovered, bool isMaximized) {
             return Container(
-              width: 46,
+              width: _kCaptionControlWidth,
               height: height,
               color: isHovered
                   ? foregroundColor.withValues(alpha: 0.1)
@@ -179,18 +246,21 @@ class _CaptionControlButtonState extends State<_CaptionControlButton> {
         ? (widget.hoverIconColor ?? widget.foregroundColor)
         : widget.foregroundColor;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onPressed,
-        child: Container(
-          width: 46,
-          height: widget.height,
-          color: bgColor,
-          alignment: Alignment.center,
-          child: Icon(widget.icon, size: 16, color: iconColor),
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onPressed,
+          child: Container(
+            width: _kCaptionControlWidth,
+            height: widget.height,
+            color: bgColor,
+            alignment: Alignment.center,
+            child: Icon(widget.icon, size: 16, color: iconColor),
+          ),
         ),
       ),
     );
