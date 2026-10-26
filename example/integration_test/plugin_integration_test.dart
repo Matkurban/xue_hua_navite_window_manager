@@ -7,10 +7,10 @@ import 'package:xue_hua_navite_window_manager/xue_hua_navite_window_manager.dart
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('NativeWindowController atomic configure integration test', (
-    WidgetTester tester,
-  ) async {
-    final WindowStateSnapshot snapshot = await NativeWindowController.configure(
+  testWidgets('XueHuaNaviteWindowManager atomic configure integration test',
+      (WidgetTester tester) async {
+    final WindowStateSnapshot snapshot =
+        await XueHuaNaviteWindowManager.configure(
       const WindowConfig(
         size: Size(1024, 720),
         minSize: Size(640, 480),

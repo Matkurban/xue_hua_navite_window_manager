@@ -4,6 +4,8 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'src/window_config.dart';
 import 'src/window_enums.dart';
+import 'src/window_event.dart';
+import 'src/window_state_snapshot.dart';
 import 'xue_hua_navite_window_manager_method_channel.dart';
 
 /// The interface that platform-specific implementations of `xue_hua_navite_window_manager` must extend.

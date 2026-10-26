@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import 'src/window_config.dart';
 import 'src/window_enums.dart';
+import 'src/window_event.dart';
+import 'src/window_state_snapshot.dart';
 import 'xue_hua_navite_window_manager_platform_interface.dart';
 
 /// An implementation of [XueHuaNaviteWindowManagerPlatform] that uses method and event channels.
@@ -241,8 +243,7 @@ class MethodChannelXueHuaNaviteWindowManager
           'trafficLightsOffsetX': trafficLightsOffset.dx,
           'trafficLightsOffsetY': trafficLightsOffset.dy,
         },
-        if (trafficLightsVisible != null)
-          'trafficLightsVisible': trafficLightsVisible,
+        'trafficLightsVisible': ?trafficLightsVisible,
       },
     );
   }
@@ -251,7 +252,10 @@ class MethodChannelXueHuaNaviteWindowManager
   Future<void> setTrafficLightsOffset(Offset offset) async {
     await methodChannel.invokeMethod<void>(
       'setTrafficLightsOffset',
-      <String, dynamic>{'x': offset.dx, 'y': offset.dy},
+      <String, dynamic>{
+        'x': offset.dx,
+        'y': offset.dy,
+      },
     );
   }
 
@@ -259,7 +263,9 @@ class MethodChannelXueHuaNaviteWindowManager
   Future<void> setTrafficLightsVisible(bool visible) async {
     await methodChannel.invokeMethod<void>(
       'setTrafficLightsVisible',
-      <String, dynamic>{'visible': visible},
+      <String, dynamic>{
+        'visible': visible,
+      },
     );
   }
 
@@ -267,7 +273,9 @@ class MethodChannelXueHuaNaviteWindowManager
   Future<void> setBackgroundColor(Color color) async {
     await methodChannel.invokeMethod<void>(
       'setBackgroundColor',
-      <String, dynamic>{'backgroundColor': color.toARGB32()},
+      <String, dynamic>{
+        'backgroundColor': color.toARGB32(),
+      },
     );
   }
 

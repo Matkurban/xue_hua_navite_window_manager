@@ -1,11 +1,11 @@
 import 'dart:ui';
 
-import 'window_config.dart';
+import 'window_event.dart';
 
 /// Mixin and interface for listening to native desktop window lifecycle and geometry events.
 ///
-/// Register a [WindowListener] via `NativeWindowController.instance.addListener(this)`
-/// and remove it in `dispose()` via `NativeWindowController.instance.removeListener(this)`.
+/// Register a [WindowListener] via `XueHuaNaviteWindowManager.instance.addListener(this)`
+/// and remove it in `dispose()` via `XueHuaNaviteWindowManager.instance.removeListener(this)`.
 mixin class WindowListener {
   /// Called on every raw [WindowEvent] emitted by the native platform.
   void onWindowEvent(WindowEvent event) {}
@@ -47,8 +47,8 @@ mixin class WindowListener {
   /// Called when the user attempts to close the window while `preventClose` is `true`.
   ///
   /// Use this callback to display an unsaved-changes confirmation dialog and then
-  /// invoke `NativeWindowController.instance.destroy()` to force-close, or
-  /// `NativeWindowController.instance.hide()` to minimize to the system tray.
+  /// invoke `XueHuaNaviteWindowManager.instance.destroy()` to force-close, or
+  /// `XueHuaNaviteWindowManager.instance.hide()` to minimize to the system tray.
   void onWindowCloseRequested() {}
 
   /// Called on Windows 11 when the cursor hovers over the registered `HTMAXBUTTON`

@@ -11,7 +11,7 @@ Future<void> main() async {
   // Atomically configure the desktop window in a single platform call before
   // revealing it on the first rendered Flutter frame (Zero-Flash Startup).
   try {
-    await NativeWindowController.configure(
+    await XueHuaNaviteWindowManager.configure(
       const WindowConfig(
         size: Size(1240, 820),
         minSize: Size(860, 580),
@@ -73,7 +73,8 @@ class WindowStudioDashboard extends StatefulWidget {
 
 class _WindowStudioDashboardState extends State<WindowStudioDashboard>
     with WindowListener {
-  final NativeWindowController _controller = NativeWindowController.instance;
+  final XueHuaNaviteWindowManager _windowManager =
+      XueHuaNaviteWindowManager.instance;
 
   TitleBarStyle _titleBarStyle = TitleBarStyle.hidden;
   double _trafficLightsX = 16.0;
@@ -100,19 +101,19 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
   @override
   void initState() {
     super.initState();
-    _controller.addListener(this);
+    _windowManager.addListener(this);
     _refreshWindowState();
   }
 
   @override
   void dispose() {
-    _controller.removeListener(this);
+    _windowManager.removeListener(this);
     super.dispose();
   }
 
   Future<void> _refreshWindowState() async {
     try {
-      final WindowStateSnapshot snapshot = await _controller.getState();
+      final WindowStateSnapshot snapshot = await _windowManager.getState();
       if (!mounted) return;
       setState(() {
         _currentBounds = snapshot.bounds;
@@ -131,11 +132,8 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
 
   void _appendLog(String message) {
     if (!mounted) return;
-    final String timestamp = DateTime.now()
-        .toIso8601String()
-        .split('T')
-        .last
-        .substring(0, 12);
+    final String timestamp =
+        DateTime.now().toIso8601String().split('T').last.substring(0, 12);
     setState(() {
       _eventLogs.insert(0, '[$timestamp] $message');
       if (_eventLogs.length > 60) {
@@ -227,9 +225,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
   @override
   void onSnapButtonHovered(bool isHovered) {
     setState(() => _snapButtonHovered = isHovered);
-    _appendLog(
-      isHovered ? 'snapButtonHovered (HTMAXBUTTON)' : 'snapButtonLeft',
-    );
+    _appendLog(isHovered ? 'snapButtonHovered (HTMAXBUTTON)' : 'snapButtonLeft');
   }
 
   @override
@@ -262,7 +258,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
             FilledButton.tonal(
               onPressed: () async {
                 Navigator.of(context).pop(false);
-                await _controller.minimize();
+                await _windowManager.minimize();
               },
               child: const Text('Minimize Instead'),
             ),
@@ -279,7 +275,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
     );
 
     if (shouldDestroy == true) {
-      await _controller.destroy();
+      await _windowManager.destroy();
     }
   }
 
@@ -296,8 +292,8 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
               height: 44,
               macosTrafficLightsReservedWidth:
                   _trafficLightsVisible && !_isFullScreen
-                  ? (_trafficLightsX + 68.0)
-                  : 12.0,
+                      ? (_trafficLightsX + 68.0)
+                      : 12.0,
               backgroundColor: const Color(0xFF1A1D2D),
               title: Row(
                 children: <Widget>[
@@ -337,7 +333,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                 IconButton(
                   tooltip: 'Center Window (1240x820)',
                   icon: const Icon(Icons.filter_center_focus, size: 18),
-                  onPressed: () => _controller.center(
+                  onPressed: () => _windowManager.center(
                     size: const Size(1240, 820),
                     animate: true,
                   ),
@@ -350,7 +346,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                         : Icons.fullscreen_rounded,
                     size: 20,
                   ),
-                  onPressed: () => _controller.setFullScreen(!_isFullScreen),
+                  onPressed: () => _windowManager.setFullScreen(!_isFullScreen),
                 ),
                 const SizedBox(width: 4),
               ],
@@ -381,7 +377,10 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                     ),
                   ),
                   const VerticalDivider(width: 1, color: Colors.white12),
-                  Expanded(flex: 4, child: _buildEventStreamPanel()),
+                  Expanded(
+                    flex: 4,
+                    child: _buildEventStreamPanel(),
+                  ),
                 ],
               ),
             ),
@@ -500,20 +499,20 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   onPressed: () async {
                     const Color bg = Color(0xFF141622);
                     final WindowStateSnapshot snap =
-                        await NativeWindowController.configure(
-                          const WindowConfig(
-                            size: Size(1280, 820),
-                            minSize: Size(860, 580),
-                            center: true,
-                            title: 'Studio Default (1280×820 Centered)',
-                            titleBarStyle: TitleBarStyle.hidden,
-                            trafficLightsOffset: Offset(16, 14),
-                            trafficLightsVisible: true,
-                            backgroundColor: bg,
-                            preventClose: true,
-                            showWhenReady: true,
-                          ),
-                        );
+                        await XueHuaNaviteWindowManager.configure(
+                      const WindowConfig(
+                        size: Size(1280, 820),
+                        minSize: Size(860, 580),
+                        center: true,
+                        title: 'Studio Default (1280×820 Centered)',
+                        titleBarStyle: TitleBarStyle.hidden,
+                        trafficLightsOffset: Offset(16, 14),
+                        trafficLightsVisible: true,
+                        backgroundColor: bg,
+                        preventClose: true,
+                        showWhenReady: true,
+                      ),
+                    );
                     setState(() {
                       _bgColor = bg;
                       _titleBarStyle = TitleBarStyle.hidden;
@@ -531,20 +530,20 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   onPressed: () async {
                     const Color bg = Color(0xFF0F172A);
                     final WindowStateSnapshot snap =
-                        await NativeWindowController.configure(
-                          const WindowConfig(
-                            size: Size(980, 660),
-                            minSize: Size(720, 480),
-                            center: true,
-                            title: 'Compact Immersive Mode',
-                            titleBarStyle: TitleBarStyle.immersive,
-                            trafficLightsOffset: Offset(22, 18),
-                            trafficLightsVisible: true,
-                            backgroundColor: bg,
-                            alwaysOnTop: false,
-                            showWhenReady: true,
-                          ),
-                        );
+                        await XueHuaNaviteWindowManager.configure(
+                      const WindowConfig(
+                        size: Size(980, 660),
+                        minSize: Size(720, 480),
+                        center: true,
+                        title: 'Compact Immersive Mode',
+                        titleBarStyle: TitleBarStyle.immersive,
+                        trafficLightsOffset: Offset(22, 18),
+                        trafficLightsVisible: true,
+                        backgroundColor: bg,
+                        alwaysOnTop: false,
+                        showWhenReady: true,
+                      ),
+                    );
                     setState(() {
                       _bgColor = bg;
                       _titleBarStyle = TitleBarStyle.immersive;
@@ -552,9 +551,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                       _trafficLightsY = 18;
                       _currentBounds = snap.bounds;
                     });
-                    _appendLog(
-                      'Atomic configure -> Compact Immersive (980x660)',
-                    );
+                    _appendLog('Atomic configure -> Compact Immersive (980x660)');
                   },
                   icon: const Icon(Icons.layers_rounded, size: 18),
                   label: const Text('Compact Immersive (980×660)'),
@@ -562,15 +559,15 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                 OutlinedButton.icon(
                   onPressed: () async {
                     final WindowStateSnapshot snap =
-                        await NativeWindowController.configure(
-                          const WindowConfig(
-                            size: Size(1100, 720),
-                            center: true,
-                            title: 'Native System TitleBar',
-                            titleBarStyle: TitleBarStyle.normal,
-                            showWhenReady: true,
-                          ),
-                        );
+                        await XueHuaNaviteWindowManager.configure(
+                      const WindowConfig(
+                        size: Size(1100, 720),
+                        center: true,
+                        title: 'Native System TitleBar',
+                        titleBarStyle: TitleBarStyle.normal,
+                        showWhenReady: true,
+                      ),
+                    );
                     setState(() {
                       _titleBarStyle = TitleBarStyle.normal;
                       _currentBounds = snap.bounds;
@@ -624,12 +621,10 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   onSelectionChanged: (Set<TitleBarStyle> selection) {
                     final TitleBarStyle style = selection.first;
                     setState(() => _titleBarStyle = style);
-                    _controller.setTitleBarStyle(
+                    _windowManager.setTitleBarStyle(
                       style,
-                      trafficLightsOffset: Offset(
-                        _trafficLightsX,
-                        _trafficLightsY,
-                      ),
+                      trafficLightsOffset:
+                          Offset(_trafficLightsX, _trafficLightsY),
                       trafficLightsVisible: _trafficLightsVisible,
                     );
                     _appendLog('setTitleBarStyle(${style.wireValue})');
@@ -655,7 +650,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                         divisions: 56,
                         onChanged: (double value) {
                           setState(() => _trafficLightsX = value);
-                          _controller.setTrafficLightsOffset(
+                          _windowManager.setTrafficLightsOffset(
                             Offset(_trafficLightsX, _trafficLightsY),
                           );
                         },
@@ -679,7 +674,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                         divisions: 42,
                         onChanged: (double value) {
                           setState(() => _trafficLightsY = value);
-                          _controller.setTrafficLightsOffset(
+                          _windowManager.setTrafficLightsOffset(
                             Offset(_trafficLightsX, _trafficLightsY),
                           );
                         },
@@ -699,7 +694,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                 value: _trafficLightsVisible,
                 onChanged: (bool value) {
                   setState(() => _trafficLightsVisible = value);
-                  _controller.setTrafficLightsVisible(value);
+                  _windowManager.setTrafficLightsVisible(value);
                 },
               ),
           ],
@@ -730,7 +725,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   selected: _preventClose,
                   onSelected: (bool v) {
                     setState(() => _preventClose = v);
-                    _controller.setPreventClose(v);
+                    _windowManager.setPreventClose(v);
                     _appendLog('setPreventClose($v)');
                   },
                 ),
@@ -739,7 +734,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   selected: _alwaysOnTop,
                   onSelected: (bool v) {
                     setState(() => _alwaysOnTop = v);
-                    _controller.setAlwaysOnTop(v);
+                    _windowManager.setAlwaysOnTop(v);
                     _appendLog('setAlwaysOnTop($v)');
                   },
                 ),
@@ -748,7 +743,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   selected: _resizable,
                   onSelected: (bool v) {
                     setState(() => _resizable = v);
-                    _controller.setResizable(v);
+                    _windowManager.setResizable(v);
                     _appendLog('setResizable($v)');
                   },
                 ),
@@ -757,7 +752,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   selected: _hasShadow,
                   onSelected: (bool v) {
                     setState(() => _hasShadow = v);
-                    _controller.setHasShadow(v);
+                    _windowManager.setHasShadow(v);
                     _appendLog('setHasShadow($v)');
                   },
                 ),
@@ -774,7 +769,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                     max: 1.0,
                     onChanged: (double value) {
                       setState(() => _opacity = value);
-                      _controller.setOpacity(value);
+                      _windowManager.setOpacity(value);
                     },
                   ),
                 ),
@@ -790,12 +785,18 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   'Midnight Indigo',
                   const Color(0xFF141622),
                 ),
-                _buildColorSwatchButton('Deep Slate', const Color(0xFF0F172A)),
+                _buildColorSwatchButton(
+                  'Deep Slate',
+                  const Color(0xFF0F172A),
+                ),
                 _buildColorSwatchButton(
                   'Obsidian Carbon',
                   const Color(0xFF18181B),
                 ),
-                _buildColorSwatchButton('Forest Pine', const Color(0xFF062019)),
+                _buildColorSwatchButton(
+                  'Forest Pine',
+                  const Color(0xFF062019),
+                ),
               ],
             ),
           ],
@@ -809,7 +810,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
     return OutlinedButton.icon(
       onPressed: () {
         setState(() => _bgColor = color);
-        _controller.setBackgroundColor(color);
+        _windowManager.setBackgroundColor(color);
         _appendLog('setBackgroundColor($label)');
       },
       icon: Container(
@@ -872,22 +873,22 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
               runSpacing: 8,
               children: <Widget>[
                 ElevatedButton.icon(
-                  onPressed: () => _controller.minimize(),
+                  onPressed: () => _windowManager.minimize(),
                   icon: const Icon(Icons.minimize, size: 16),
                   label: const Text('Minimize'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => _controller.toggleMaximize(),
+                  onPressed: () => _windowManager.toggleMaximize(),
                   icon: const Icon(Icons.crop_square, size: 16),
                   label: Text(_isMaximized ? 'Unmaximize' : 'Maximize'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => _controller.center(animate: true),
+                  onPressed: () => _windowManager.center(animate: true),
                   icon: const Icon(Icons.center_focus_strong, size: 16),
                   label: const Text('Center'),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => _controller.close(),
+                  onPressed: () => _windowManager.close(),
                   icon: const Icon(Icons.close, size: 16),
                   label: const Text('Request Close'),
                 ),

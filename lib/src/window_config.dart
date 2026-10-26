@@ -5,10 +5,11 @@ import 'window_enums.dart';
 /// Atomic configuration model for initializing or updating the native desktop window
 /// in a single platform channel invocation.
 ///
-/// Using [WindowConfig] with `NativeWindowController.instance.configure(config)`
-/// computes target geometry (size, constraints, and centered coordinates) and window
-/// styles in memory on the native thread before applying a single atomic window frame
-/// update, eliminating startup flashes and window jumping.
+/// Using [WindowConfig] with `XueHuaNaviteWindowManager.instance.configureWindow(config)`
+/// or `XueHuaNaviteWindowManager.configure(config)` computes target geometry (size,
+/// constraints, and centered coordinates) and window styles in memory on the native
+/// thread before applying a single atomic window frame update, eliminating startup
+/// flashes and window jumping.
 class WindowConfig {
   /// Initial or target logical size (width, height) in device-independent pixels (DIP).
   final Size? size;
@@ -42,13 +43,12 @@ class WindowConfig {
   final Offset? trafficLightsOffset;
 
   /// Whether the macOS traffic light buttons are visible when using `hidden` or
-  /// `immersive` title bar styles. Defaults to `true` (or `false` when `immersive`
-  /// unless explicitly set).
+  /// `immersive` title bar styles. Defaults to `true`.
   final bool? trafficLightsVisible;
 
   /// Native window background color painted during startup (`WM_ERASEBKGND` on Windows,
-  /// `NSWindow.backgroundColor` on macOS, `gdk_window` background on Linux) and during
-  /// rapid window edge resizing to prevent black/white tearing artifacts.
+  /// `NSWindow.backgroundColor` on macOS, `fl_view_set_background_color` on Linux) and
+  /// during rapid window edge resizing to prevent black/white tearing artifacts.
   final Color? backgroundColor;
 
   /// Whether the window should float above all other non-topmost windows.
@@ -145,22 +145,21 @@ class WindowConfig {
       if (position != null) 'x': position!.dx,
       if (position != null) 'y': position!.dy,
       'center': center,
-      if (title != null) 'title': title,
+      'title': ?title,
       if (titleBarStyle != null) 'titleBarStyle': titleBarStyle!.wireValue,
       if (trafficLightsOffset != null) ...<String, dynamic>{
         'trafficLightsOffsetX': trafficLightsOffset!.dx,
         'trafficLightsOffsetY': trafficLightsOffset!.dy,
       },
-      if (trafficLightsVisible != null)
-        'trafficLightsVisible': trafficLightsVisible,
+      'trafficLightsVisible': ?trafficLightsVisible,
       if (backgroundColor != null)
         'backgroundColor': backgroundColor!.toARGB32(),
-      if (alwaysOnTop != null) 'alwaysOnTop': alwaysOnTop,
-      if (resizable != null) 'resizable': resizable,
-      if (preventClose != null) 'preventClose': preventClose,
+      'alwaysOnTop': ?alwaysOnTop,
+      'resizable': ?resizable,
+      'preventClose': ?preventClose,
       'showWhenReady': showWhenReady,
-      if (hasShadow != null) 'hasShadow': hasShadow,
-      if (resizeBorderWidth != null) 'resizeBorderWidth': resizeBorderWidth,
+      'hasShadow': ?hasShadow,
+      'resizeBorderWidth': ?resizeBorderWidth,
     };
   }
 
@@ -173,141 +172,4 @@ class WindowConfig {
         'resizable: $resizable, preventClose: $preventClose, '
         'showWhenReady: $showWhenReady)';
   }
-}
-
-/// Snapshot of the current native window geometry and state flags.
-class WindowStateSnapshot {
-  /// Current window bounding rectangle in logical screen coordinates (DIP).
-  final Rect bounds;
-
-  /// Whether the window is currently visible on screen.
-  final bool isVisible;
-
-  /// Whether the window is currently maximized (zoomed).
-  final bool isMaximized;
-
-  /// Whether the window is currently minimized (iconified).
-  final bool isMinimized;
-
-  /// Whether the window is currently in native full-screen mode.
-  final bool isFullScreen;
-
-  /// Whether the window currently has input focus.
-  final bool isFocused;
-
-  /// Whether the window is floating above normal windows.
-  final bool isAlwaysOnTop;
-
-  /// Whether the user can resize the window.
-  final bool isResizable;
-
-  /// Whether window close interception is currently active.
-  final bool isPreventClose;
-
-  /// Creates a [WindowStateSnapshot].
-  const WindowStateSnapshot({
-    required this.bounds,
-    required this.isVisible,
-    required this.isMaximized,
-    required this.isMinimized,
-    required this.isFullScreen,
-    required this.isFocused,
-    required this.isAlwaysOnTop,
-    required this.isResizable,
-    required this.isPreventClose,
-  });
-
-  /// Constructs a [WindowStateSnapshot] from a platform channel dictionary.
-  factory WindowStateSnapshot.fromMap(Map<Object?, Object?> map) {
-    final double x = (map['x'] as num?)?.toDouble() ?? 0.0;
-    final double y = (map['y'] as num?)?.toDouble() ?? 0.0;
-    final double width = (map['width'] as num?)?.toDouble() ?? 800.0;
-    final double height = (map['height'] as num?)?.toDouble() ?? 600.0;
-
-    return WindowStateSnapshot(
-      bounds: Rect.fromLTWH(x, y, width, height),
-      isVisible: (map['isVisible'] as bool?) ?? true,
-      isMaximized: (map['isMaximized'] as bool?) ?? false,
-      isMinimized: (map['isMinimized'] as bool?) ?? false,
-      isFullScreen: (map['isFullScreen'] as bool?) ?? false,
-      isFocused: (map['isFocused'] as bool?) ?? true,
-      isAlwaysOnTop: (map['isAlwaysOnTop'] as bool?) ?? false,
-      isResizable: (map['isResizable'] as bool?) ?? true,
-      isPreventClose: (map['isPreventClose'] as bool?) ?? false,
-    );
-  }
-
-  /// Converts this snapshot into a serializable map.
-  Map<String, dynamic> toMap() {
-    return <String, dynamic>{
-      'x': bounds.left,
-      'y': bounds.top,
-      'width': bounds.width,
-      'height': bounds.height,
-      'isVisible': isVisible,
-      'isMaximized': isMaximized,
-      'isMinimized': isMinimized,
-      'isFullScreen': isFullScreen,
-      'isFocused': isFocused,
-      'isAlwaysOnTop': isAlwaysOnTop,
-      'isResizable': isResizable,
-      'isPreventClose': isPreventClose,
-    };
-  }
-}
-
-/// Strongly typed event payload delivered by the native window event stream.
-class WindowEvent {
-  /// The specific window event type.
-  final WindowEventType type;
-
-  /// Current window bounds `(x, y, width, height)` in logical pixels at the time of the event, if available.
-  final Rect? bounds;
-
-  /// Whether the window is currently maximized, if included in the event payload.
-  final bool? isMaximized;
-
-  /// Whether the window is currently in full-screen mode, if included in the event payload.
-  final bool? isFullScreen;
-
-  /// Timestamp (milliseconds since epoch) when the event was generated.
-  final int timestamp;
-
-  /// Creates a [WindowEvent].
-  const WindowEvent({
-    required this.type,
-    this.bounds,
-    this.isMaximized,
-    this.isFullScreen,
-    required this.timestamp,
-  });
-
-  /// Parses a [WindowEvent] from a raw map received over the native `EventChannel`.
-  static WindowEvent? fromMap(Map<Object?, Object?> map) {
-    final String? typeRaw = map['type'] as String?;
-    final WindowEventType? eventType = WindowEventType.fromWire(typeRaw);
-    if (eventType == null) return null;
-
-    Rect? bounds;
-    if (map['width'] != null && map['height'] != null) {
-      final double x = (map['x'] as num?)?.toDouble() ?? 0.0;
-      final double y = (map['y'] as num?)?.toDouble() ?? 0.0;
-      final double width = (map['width'] as num).toDouble();
-      final double height = (map['height'] as num).toDouble();
-      bounds = Rect.fromLTWH(x, y, width, height);
-    }
-
-    return WindowEvent(
-      type: eventType,
-      bounds: bounds,
-      isMaximized: map['isMaximized'] as bool?,
-      isFullScreen: map['isFullScreen'] as bool?,
-      timestamp:
-          (map['timestamp'] as int?) ?? DateTime.now().millisecondsSinceEpoch,
-    );
-  }
-
-  @override
-  String toString() =>
-      'WindowEvent(type: ${type.wireValue}, bounds: $bounds, isMaximized: $isMaximized, isFullScreen: $isFullScreen)';
 }

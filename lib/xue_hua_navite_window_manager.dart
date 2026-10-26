@@ -4,7 +4,7 @@
 /// Features:
 /// - **Zero-Flash First Frame**: Synchronizes native window background color and
 ///   defers window display until the first Flutter frame is rendered.
-/// - **Atomic Window Configuration**: Single-channel `NativeWindowController.configure(WindowConfig)`
+/// - **Atomic Window Configuration**: Single-channel `XueHuaNaviteWindowManager.configure(WindowConfig)`
 ///   applies size, min/max constraints, center/position, title bar style, and
 ///   macOS traffic light offsets in one atomic native pass.
 /// - **Deep Custom Frame & Native Feel**:
@@ -16,10 +16,15 @@
 ///   - Linux: GTK3 frameless / header bar configuration, geometry hints, and edge resizing.
 library;
 
-export 'src/native_window_controller.dart';
 export 'src/widgets/drag_area.dart';
+export 'src/widgets/snap_layout_button.dart';
+export 'src/widgets/window_caption.dart';
+export 'src/widgets/window_resize_edge_area.dart';
 export 'src/window_config.dart';
 export 'src/window_enums.dart';
+export 'src/window_event.dart';
 export 'src/window_listener.dart';
+export 'src/window_state_snapshot.dart';
+export 'src/xue_hua_navite_window_manager_controller.dart';
 export 'xue_hua_navite_window_manager_method_channel.dart';
 export 'xue_hua_navite_window_manager_platform_interface.dart';

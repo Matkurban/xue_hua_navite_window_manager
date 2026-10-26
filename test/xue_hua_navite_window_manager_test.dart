@@ -202,15 +202,16 @@ void main() {
     );
   });
 
-  test('NativeWindowController.configure and listener dispatch', () async {
+  test('XueHuaNaviteWindowManager.configure and listener dispatch', () async {
     final MockXueHuaNaviteWindowManagerPlatform fakePlatform =
         MockXueHuaNaviteWindowManagerPlatform();
     XueHuaNaviteWindowManagerPlatform.instance = fakePlatform;
 
     final _TestWindowListener listener = _TestWindowListener();
-    NativeWindowController.instance.addListener(listener);
+    XueHuaNaviteWindowManager.instance.addListener(listener);
 
-    final WindowStateSnapshot snapshot = await NativeWindowController.configure(
+    final WindowStateSnapshot snapshot =
+        await XueHuaNaviteWindowManager.configure(
       const WindowConfig(
         size: Size(1200, 800),
         center: true,
@@ -224,7 +225,10 @@ void main() {
     expect(snapshot.isPreventClose, isTrue);
 
     fakePlatform.eventController.add(
-      const WindowEvent(type: WindowEventType.closeRequested, timestamp: 1000),
+      const WindowEvent(
+        type: WindowEventType.closeRequested,
+        timestamp: 1000,
+      ),
     );
     fakePlatform.eventController.add(
       const WindowEvent(
@@ -238,6 +242,6 @@ void main() {
     expect(listener.closeRequested, isTrue);
     expect(listener.resizedTo, const Size(1440, 900));
 
-    NativeWindowController.instance.removeListener(listener);
+    XueHuaNaviteWindowManager.instance.removeListener(listener);
   });
 }

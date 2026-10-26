@@ -12,7 +12,7 @@ A production-grade, high-performance cross-platform desktop window management pl
 Designed from the ground up to solve the core architectural limitations of legacy desktop window plugins:
 
 1. **Zero-Flash First Frame (`Zero-Flash Startup & Anti-Tearing Resize`)**: Synchronizes native window background brushes (`WM_ERASEBKGND` on Windows, `NSWindow.backgroundColor` + `CALayer` on macOS, `fl_view_set_background_color` on Linux) and keeps the window concealed until the first Flutter frame is rasterized and all geometry is applied.
-2. **Atomic Batch Configuration (`NativeWindowController.configure`)**: Consolidates `size`, `minSize`, `maxSize`, `center`/`position`, `title`, `titleBarStyle`, `trafficLightsOffset`, `backgroundColor`, `alwaysOnTop`, `resizable`, and `preventClose` into a **single** native platform call—eliminating multi-channel overhead and visible window jumping on launch.
+2. **Atomic Batch Configuration (`XueHuaNaviteWindowManager.configure`)**: Consolidates `size`, `minSize`, `maxSize`, `center`/`position`, `title`, `titleBarStyle`, `trafficLightsOffset`, `backgroundColor`, `alwaysOnTop`, `resizable`, and `preventClose` into a **single** native platform call—eliminating multi-channel overhead and visible window jumping on launch.
 3. **Deep Custom Frameless Window with Native OS Feel**:
    - **Windows (`C++17` / `Win32 Subclassing` / `DWM`)**: Uses `SetWindowSubclass` to intercept `WM_NCCALCSIZE` (removes standard title bar while keeping native border styles), `DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND)` + `DwmExtendFrameIntoClientArea` (preserves Windows 11 native rounded corners and drop shadow), `WM_NCHITTEST` (provides DPI-aware 8-direction resize borders and registers custom Dart widgets as `HTMAXBUTTON` to trigger **Windows 11 Snap Layouts**), and `WM_GETMINMAXINFO` (enforces smooth min/max constraints in the native message loop).
    - **macOS (`Swift 5.9+` / `AppKit` / `SPM`)**: Native Swift Package Manager (`Package.swift`) support, `.fullSizeContentView` + transparent title bar, and a persistent **Traffic Lights Offset Controller** that pins `closeButton`, `miniaturizeButton`, and `zoomButton` to custom `(x, y)` coordinates across live resizing and full-screen transitions.
@@ -91,20 +91,20 @@ class MainFlutterWindow: NSWindow {
 
 ### 2. Windows (`windows/runner/flutter_window.cpp`)
 
-Remove the default `this->Show()` inside `SetNextFrameCallback` so `NativeWindowController.configure(..., showWhenReady: true)` reveals the window atomically after applying size, centering, and DWM attributes:
+Remove the default `this->Show()` inside `SetNextFrameCallback` so `XueHuaNaviteWindowManager.configure(..., showWhenReady: true)` reveals the window atomically after applying size, centering, and DWM attributes:
 
 ```cpp
 RegisterPlugins(flutter_controller_->engine());
 SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-// NativeWindowController.configure(WindowConfig(..., showWhenReady: true))
+// XueHuaNaviteWindowManager.configure(WindowConfig(..., showWhenReady: true))
 // will reveal and focus the window once the first frame and geometry are ready.
 flutter_controller_->ForceRedraw();
 ```
 
 ### 3. Linux (`linux/runner/my_application.cc`)
 
-Set the initial `FlView` background color and let `NativeWindowController.configure` present the top-level `GtkWindow`:
+Set the initial `FlView` background color and let `XueHuaNaviteWindowManager.configure` present the top-level `GtkWindow`:
 
 ```c
 FlView* view = fl_view_new(project);
@@ -132,8 +132,8 @@ import 'package:xue_hua_navite_window_manager/xue_hua_navite_window_manager.dart
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Single-channel atomic configuration:
-  await NativeWindowController.configure(
+  // Single-channel atomic configuration via XueHuaNaviteWindowManager:
+  await XueHuaNaviteWindowManager.configure(
     const WindowConfig(
       size: Size(1240, 820),
       minSize: Size(860, 580),
@@ -174,7 +174,7 @@ Scaffold(
         actions: [
           IconButton(
             icon: const Icon(Icons.fullscreen, size: 18),
-            onPressed: () => NativeWindowController.instance.setFullScreen(true),
+            onPressed: () => XueHuaNaviteWindowManager.instance.setFullScreen(true),
           ),
         ],
       ),
@@ -235,12 +235,12 @@ class _WorkspacePageState extends State<WorkspacePage> with WindowListener {
   @override
   void initState() {
     super.initState();
-    NativeWindowController.instance.addListener(this);
+    XueHuaNaviteWindowManager.instance.addListener(this);
   }
 
   @override
   void dispose() {
-    NativeWindowController.instance.removeListener(this);
+    XueHuaNaviteWindowManager.instance.removeListener(this);
     super.dispose();
   }
 
@@ -272,7 +272,7 @@ class _WorkspacePageState extends State<WorkspacePage> with WindowListener {
 
     if (shouldExit == true) {
       // Call destroy() to bypass preventClose and close immediately.
-      await NativeWindowController.instance.destroy();
+      await XueHuaNaviteWindowManager.instance.destroy();
     }
   }
 
@@ -285,10 +285,10 @@ class _WorkspacePageState extends State<WorkspacePage> with WindowListener {
 
 ```dart
 // Move macOS close/minimize/zoom buttons to (x: 20, y: 18) from top-left:
-await NativeWindowController.instance.setTrafficLightsOffset(const Offset(20, 18));
+await XueHuaNaviteWindowManager.instance.setTrafficLightsOffset(const Offset(20, 18));
 
 // Hide or show macOS traffic light buttons dynamically:
-await NativeWindowController.instance.setTrafficLightsVisible(false);
+await XueHuaNaviteWindowManager.instance.setTrafficLightsVisible(false);
 ```
 
 ---

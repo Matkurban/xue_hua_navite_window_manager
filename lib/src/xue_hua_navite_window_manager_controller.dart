@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -7,18 +8,23 @@ import 'package:flutter/widgets.dart';
 import '../xue_hua_navite_window_manager_platform_interface.dart';
 import 'window_config.dart';
 import 'window_enums.dart';
+import 'window_event.dart';
 import 'window_listener.dart';
+import 'window_state_snapshot.dart';
 
 /// High-performance singleton controller for desktop window management across
 /// macOS, Windows, and Linux.
 ///
-/// Use [NativeWindowController.configure] during `main()` initialization to perform
-/// an atomic, single-channel window setup with zero startup black/white flash.
-class NativeWindowController {
-  NativeWindowController._();
+/// Named to match the plugin package `xue_hua_navite_window_manager`.
+/// Use [XueHuaNaviteWindowManager.configure] or `XueHuaNaviteWindowManager.instance.configureWindow`
+/// during `main()` initialization to perform an atomic, single-channel window setup
+/// with zero startup black/white flash.
+class XueHuaNaviteWindowManager {
+  XueHuaNaviteWindowManager._();
 
-  /// Singleton instance of [NativeWindowController].
-  static final NativeWindowController instance = NativeWindowController._();
+  /// Singleton instance of [XueHuaNaviteWindowManager].
+  static final XueHuaNaviteWindowManager instance =
+      XueHuaNaviteWindowManager._();
 
   XueHuaNaviteWindowManagerPlatform get _platform =>
       XueHuaNaviteWindowManagerPlatform.instance;
@@ -53,39 +59,36 @@ class NativeWindowController {
       _lastSnapshot = WindowStateSnapshot(
         bounds: event.bounds ?? _lastSnapshot!.bounds,
         isVisible: _lastSnapshot!.isVisible,
-        isMaximized:
-            event.isMaximized ??
+        isMaximized: event.isMaximized ??
             (event.type == WindowEventType.maximized
                 ? true
                 : event.type == WindowEventType.unmaximized
-                ? false
-                : _lastSnapshot!.isMaximized),
+                    ? false
+                    : _lastSnapshot!.isMaximized),
         isMinimized: event.type == WindowEventType.minimized
             ? true
             : event.type == WindowEventType.restored
-            ? false
-            : _lastSnapshot!.isMinimized,
-        isFullScreen:
-            event.isFullScreen ??
+                ? false
+                : _lastSnapshot!.isMinimized,
+        isFullScreen: event.isFullScreen ??
             (event.type == WindowEventType.enteredFullScreen
                 ? true
                 : event.type == WindowEventType.exitedFullScreen
-                ? false
-                : _lastSnapshot!.isFullScreen),
+                    ? false
+                    : _lastSnapshot!.isFullScreen),
         isFocused: event.type == WindowEventType.focused
             ? true
             : event.type == WindowEventType.blurred
-            ? false
-            : _lastSnapshot!.isFocused,
+                ? false
+                : _lastSnapshot!.isFocused,
         isAlwaysOnTop: _lastSnapshot!.isAlwaysOnTop,
         isResizable: _lastSnapshot!.isResizable,
         isPreventClose: _lastSnapshot!.isPreventClose,
       );
     }
 
-    final List<WindowListener> localListeners = List<WindowListener>.of(
-      _listeners,
-    );
+    final List<WindowListener> localListeners =
+        List<WindowListener>.of(_listeners);
     for (final WindowListener listener in localListeners) {
       if (!_listeners.contains(listener)) continue;
       listener.onWindowEvent(event);
@@ -148,16 +151,15 @@ class NativeWindowController {
     return instance.configureWindow(config);
   }
 
-  /// Instance method equivalent of [NativeWindowController.configure].
+  /// Instance method equivalent of [XueHuaNaviteWindowManager.configure].
   Future<WindowStateSnapshot> configureWindow(WindowConfig config) async {
     await ensureInitialized();
 
     // Send the atomic configuration payload without revealing immediately until
     // the first Flutter frame is guaranteed to be rasterized.
     final WindowConfig preFrameConfig = config.copyWith(showWhenReady: false);
-    final WindowStateSnapshot snapshot = await _platform.configure(
-      preFrameConfig,
-    );
+    final WindowStateSnapshot snapshot =
+        await _platform.configure(preFrameConfig);
     _lastSnapshot = snapshot;
 
     if (config.showWhenReady) {
@@ -281,11 +283,12 @@ class NativeWindowController {
     TitleBarStyle style, {
     Offset? trafficLightsOffset,
     bool? trafficLightsVisible,
-  }) => _platform.setTitleBarStyle(
-    style,
-    trafficLightsOffset: trafficLightsOffset,
-    trafficLightsVisible: trafficLightsVisible,
-  );
+  }) =>
+      _platform.setTitleBarStyle(
+        style,
+        trafficLightsOffset: trafficLightsOffset,
+        trafficLightsVisible: trafficLightsVisible,
+      );
 
   /// Dynamically repositions the macOS traffic light buttons (`close`, `miniaturize`, `zoom`).
   Future<void> setTrafficLightsOffset(Offset offset) =>
@@ -321,8 +324,12 @@ class NativeWindowController {
   Future<void> setTitleBarDragRects({
     required List<Rect> dragRects,
     List<Rect> excludeRects = const <Rect>[],
-  }) => _platform.setTitleBarDragRects(
-    dragRects: dragRects,
-    excludeRects: excludeRects,
-  );
+  }) =>
+      _platform.setTitleBarDragRects(
+        dragRects: dragRects,
+        excludeRects: excludeRects,
+      );
 }
+
+/// Type alias for backward compatibility with architectural specifications referencing `NativeWindowController`.
+typedef NativeWindowController = XueHuaNaviteWindowManager;

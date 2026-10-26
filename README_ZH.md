@@ -12,7 +12,7 @@
 针对现有桌面端窗口管理插件的三大核心痛点进行了底层重构：
 
 1. **零黑屏启动与防拉伸黑边（Zero-Flash First Frame）**：在原生层同步填充窗口底色（Windows 拦截 `WM_ERASEBKGND` 画刷、macOS 同步 `NSWindow.backgroundColor` 与 `FlutterView` 的 `CALayer` 背景色、Linux 同步 `fl_view_set_background_color`），并在 Flutter 首帧渲染完成且窗口尺寸/位置计算完毕后才原子化显示窗口，彻底消除启动闪烁与快速拖拽边缘时的黑边撕裂。
-2. **原子化批量配置（Atomic Window Configuration）**：提供 `NativeWindowController.configure(WindowConfig)`，通过**单次** MethodChannel 通信将 `size`、`minSize`、`maxSize`、`center`/`position`、`title`、`titleBarStyle`、`trafficLightsOffset`、`backgroundColor`、`alwaysOnTop`、`resizable`、`preventClose` 一次性传给原生层并在内存中完成坐标计算，彻底杜绝初始化时的多次重绘与窗口跳动。
+2. **原子化批量配置（`XueHuaNaviteWindowManager.configure`）**：提供 `XueHuaNaviteWindowManager.configure(WindowConfig)`（或 `XueHuaNaviteWindowManager.instance.configureWindow(WindowConfig)`），通过**单次** MethodChannel 通信将 `size`、`minSize`、`maxSize`、`center`/`position`、`title`、`titleBarStyle`、`trafficLightsOffset`、`backgroundColor`、`alwaysOnTop`、`resizable`、`preventClose` 一次性传给原生层并在内存中完成坐标计算，彻底杜绝初始化时的多次重绘与窗口跳动。
 3. **深度无边框与原生系统特性保留（Custom Frame & Native Feel）**：
    - **Windows 端（C++17 / Win32 Subclassing / DWM）**：通过 `SetWindowSubclass` 挂载自定义窗口过程，拦截 `WM_NCCALCSIZE` 移除系统标题栏；调用 `DwmExtendFrameIntoClientArea` 与 `DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND)` 完整保留 **Windows 11 原生圆角与系统阴影**；拦截 `WM_NCHITTEST` 实现 6~8px DPI 自适应八向缩放热区，并支持将 Dart 层的最大化按钮注册为 `HTMAXBUTTON`，完美触发 **Windows 11 Snap Layouts（悬停分屏菜单）**；拦截 `WM_GETMINMAXINFO` 在原生消息循环层强制约束最小/最大尺寸，丝滑无抖动。
    - **macOS 端（Swift 5.9+ / AppKit / SPM）**：原生支持 **Swift Package Manager (`Package.swift`)**，支持 `.fullSizeContentView` 沉浸式无边框标题栏，内置**红绿灯按钮（Traffic Lights）偏移控制器**，支持动态调整 `(x, y)` 偏移量并在窗口缩放、最小化恢复、全屏进出时自动保持位置不乱跳。
@@ -91,20 +91,20 @@ class MainFlutterWindow: NSWindow {
 
 ### 2. Windows 端 (`windows/runner/flutter_window.cpp`)
 
-移除默认模板中的 `SetNextFrameCallback([&]() { this->Show(); })`，交由 `NativeWindowController.configure(..., showWhenReady: true)` 在完成尺寸、居中与 DWM 样式设置后统一原子化调用 `ShowWindow`：
+移除默认模板中的 `SetNextFrameCallback([&]() { this->Show(); })`，交由 `XueHuaNaviteWindowManager.configure(..., showWhenReady: true)` 在完成尺寸、居中与 DWM 样式设置后统一原子化调用 `ShowWindow`：
 
 ```cpp
 RegisterPlugins(flutter_controller_->engine());
 SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-// 窗口显示由 NativeWindowController.configure(WindowConfig(..., showWhenReady: true))
+// 窗口显示由 XueHuaNaviteWindowManager.configure(WindowConfig(..., showWhenReady: true))
 // 在首帧渲染完成且窗口位置/样式全部就绪后一次性触发。
 flutter_controller_->ForceRedraw();
 ```
 
 ### 3. Linux 端 (`linux/runner/my_application.cc`)
 
-预设 `FlView` 背景色，并由 `NativeWindowController.configure` 控制顶层 `GtkWindow` 的首次显示：
+预设 `FlView` 背景色，并由 `XueHuaNaviteWindowManager.configure` 控制顶层 `GtkWindow` 的首次显示：
 
 ```c
 FlView* view = fl_view_new(project);
@@ -133,7 +133,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 单次通信完成大小、最小/最大约束、居中、无边框样式、红绿灯偏移与底色配置：
-  await NativeWindowController.configure(
+  await XueHuaNaviteWindowManager.configure(
     const WindowConfig(
       size: Size(1240, 820),
       minSize: Size(860, 580),
@@ -174,7 +174,7 @@ Scaffold(
         actions: [
           IconButton(
             icon: const Icon(Icons.fullscreen, size: 18),
-            onPressed: () => NativeWindowController.instance.setFullScreen(true),
+            onPressed: () => XueHuaNaviteWindowManager.instance.setFullScreen(true),
           ),
         ],
       ),
@@ -235,12 +235,12 @@ class _WorkspacePageState extends State<WorkspacePage> with WindowListener {
   @override
   void initState() {
     super.initState();
-    NativeWindowController.instance.addListener(this);
+    XueHuaNaviteWindowManager.instance.addListener(this);
   }
 
   @override
   void dispose() {
-    NativeWindowController.instance.removeListener(this);
+    XueHuaNaviteWindowManager.instance.removeListener(this);
     super.dispose();
   }
 
@@ -272,7 +272,7 @@ class _WorkspacePageState extends State<WorkspacePage> with WindowListener {
 
     if (shouldExit == true) {
       // 调用 destroy() 绕过拦截立即销毁窗口
-      await NativeWindowController.instance.destroy();
+      await XueHuaNaviteWindowManager.instance.destroy();
     }
   }
 
@@ -285,10 +285,10 @@ class _WorkspacePageState extends State<WorkspacePage> with WindowListener {
 
 ```dart
 // 动态将 macOS 左上角红绿灯按钮调整至距离左上角 (x: 20, y: 18) 逻辑像素处：
-await NativeWindowController.instance.setTrafficLightsOffset(const Offset(20, 18));
+await XueHuaNaviteWindowManager.instance.setTrafficLightsOffset(const Offset(20, 18));
 
 // 动态隐藏或显示红绿灯按钮：
-await NativeWindowController.instance.setTrafficLightsVisible(false);
+await XueHuaNaviteWindowManager.instance.setTrafficLightsVisible(false);
 ```
 
 ---
