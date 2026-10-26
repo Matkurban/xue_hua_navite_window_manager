@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -57,7 +56,11 @@ class WindowCaption extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isMacOS = !kIsWeb && Platform.isMacOS;
+    // defaultTargetPlatform follows the host OS in production and honors
+    // debugDefaultTargetPlatformOverride in tests. dart:io Platform.isMacOS
+    // cannot be overridden, so caption tests failed on macOS hosts.
+    final bool isMacOS =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
     final ThemeData theme = Theme.of(context);
     final Color fgColor = foregroundColor ?? theme.colorScheme.onSurface;
 

@@ -184,3 +184,29 @@ bool xue_hua_center_position_applied(XueHuaCenterAction action, bool wayland) {
   }
   return action == XUE_HUA_CENTER_MAP_HINT || action == XUE_HUA_CENTER_MOVE;
 }
+
+namespace {
+
+int clamp_axis(int value, int min_value, int max_value) {
+  if (max_value > 0 && value > max_value) {
+    value = max_value;
+  }
+  if (min_value > 0 && value < min_value) {
+    value = min_value;
+  }
+  return value;
+}
+
+}  // namespace
+
+XueHuaClampedSize xue_hua_clamp_window_size(int width,
+                                            int height,
+                                            int min_width,
+                                            int min_height,
+                                            int max_width,
+                                            int max_height) {
+  XueHuaClampedSize size;
+  size.width = clamp_axis(width, min_width, max_width);
+  size.height = clamp_axis(height, min_height, max_height);
+  return size;
+}

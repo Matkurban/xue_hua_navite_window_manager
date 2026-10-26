@@ -131,4 +131,21 @@ bool xue_hua_position_is_authoritative(bool wayland);
 // may ignore it, and a mapped window cannot be moved at all.
 bool xue_hua_center_position_applied(XueHuaCenterAction action, bool wayland);
 
+struct XueHuaClampedSize {
+  int width;
+  int height;
+};
+
+// Clamps a client size to stored limits. A limit <= 0 leaves that edge open.
+// GTK geometry hints do not constrain gtk_window_resize on every window
+// manager, so setSize / setBounds / configure clamp before requesting a size.
+// When both limits are set and max < min, the minimum wins (same as macOS
+// configure and the Windows ClampDipAxis helper).
+XueHuaClampedSize xue_hua_clamp_window_size(int width,
+                                            int height,
+                                            int min_width,
+                                            int min_height,
+                                            int max_width,
+                                            int max_height);
+
 #endif  // XUE_HUA_WINDOW_LOGIC_H_

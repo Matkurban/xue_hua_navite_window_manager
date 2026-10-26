@@ -2,7 +2,7 @@
 
 [English](./README.md) | 简体中文
 
-[![Version](https://img.shields.io/badge/version-1.0.3-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
+[![Version](https://img.shields.io/badge/version-1.0.4-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
 [![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.47.0-02569B.svg)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-%5E3.13.0-0175C2.svg)](https://dart.dev)
 [![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-success.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
@@ -107,6 +107,16 @@ class MainFlutterWindow: NSWindow {
   }
 }
 ```
+
+`hide()` 会调用 `orderOut`。Flutter 模板的 `applicationShouldTerminateAfterLastWindowClosed` 返回 `true` 时，窗口一旦不可见 AppKit 就会退出进程，随后的 `show()` 无法执行。需要隐藏窗口并保持进程时返回 `false`（示例工程已这样配置）：
+
+```swift
+override func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
+  return false
+}
+```
+
+只有从不调用 `hide()`、并希望最后一个窗口关闭后退出的应用，才保留模板里的 `true`。
 
 ### 2. Windows 端 (`windows/runner/flutter_window.cpp`)
 
@@ -322,6 +332,8 @@ await XueHuaNaviteWindowManager.instance.setTrafficLightsVisible(false);
    - `close()` 会触发标准关闭流程（若开启了 `preventClose: true`，则会拦截关闭并向 Dart 派发 `onWindowCloseRequested`）。
    - `destroy()` 会绕过拦截直接销毁原生窗口，适合在用户点击确认退出对话框后调用。
 4. **Windows 11 Snap Layouts 注意事项**：当页面中使用 `SnapLayoutButton`（或包含它的 `WindowCaption`）时，组件会自动计算自身在窗口内的全局坐标并同步给原生层 `WM_NCHITTEST`。当窗口处于无边框模式（`TitleBarStyle.hidden` 或 `immersive`）时，悬停在最大化按钮上即可无缝唤出 Windows 11 原生分屏布局菜单。
+5. **编程方式改尺寸会遵守最小/最大限制**：`setSize`、`setBounds` 和 `center(size:)` 会钳制到 `setMinimumSize`、`setMaximumSize` 或 `configure` 保存的限制。AppKit 的 `setFrame` 与 Win32 的 `SetWindowPos` 本身不会应用这些限制，GTK 的几何提示也不会在所有窗口管理器上约束 `gtk_window_resize`。某一边的限制小于等于 0 时，该边不设限。
+6. **macOS 上 `hide()` 要保持进程必须显式选择**：见上文 macOS 宿主配置。`applicationShouldTerminateAfterLastWindowClosed` 必须返回 `false`，否则 `orderOut` 会直接退出应用。
 
 ---
 

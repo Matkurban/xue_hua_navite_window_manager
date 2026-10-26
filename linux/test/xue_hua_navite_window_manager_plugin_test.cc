@@ -154,6 +154,35 @@ TEST(XueHuaWindowLogic, ResizeRegionBeatsLargerMoveRegion) {
   EXPECT_EQ(none.action, XUE_HUA_PRESS_IGNORE);
 }
 
+TEST(XueHuaWindowLogic, ClampSizeHonorsStoredMinimumAndMaximum) {
+  // Repro: setMinimumSize(850, 560) then setSize(500, 400) must not stick.
+  const XueHuaClampedSize below =
+      xue_hua_clamp_window_size(500, 400, 850, 560, 0, 0);
+  EXPECT_EQ(below.width, 850);
+  EXPECT_EQ(below.height, 560);
+
+  const XueHuaClampedSize above =
+      xue_hua_clamp_window_size(1400, 900, 0, 0, 1050, 700);
+  EXPECT_EQ(above.width, 1050);
+  EXPECT_EQ(above.height, 700);
+
+  const XueHuaClampedSize inside =
+      xue_hua_clamp_window_size(900, 640, 850, 560, 1050, 700);
+  EXPECT_EQ(inside.width, 900);
+  EXPECT_EQ(inside.height, 640);
+
+  const XueHuaClampedSize unbounded =
+      xue_hua_clamp_window_size(100, 80, 0, 0, 0, 0);
+  EXPECT_EQ(unbounded.width, 100);
+  EXPECT_EQ(unbounded.height, 80);
+
+  // Minimum wins when the stored maximum is below the minimum.
+  const XueHuaClampedSize conflict =
+      xue_hua_clamp_window_size(50, 40, 800, 600, 100, 80);
+  EXPECT_EQ(conflict.width, 800);
+  EXPECT_EQ(conflict.height, 600);
+}
+
 TEST(XueHuaWindowLogic, CenterPlanMatchesBackendLimits) {
   EXPECT_EQ(xue_hua_plan_center(false, false), XUE_HUA_CENTER_MAP_HINT);
   EXPECT_EQ(xue_hua_plan_center(false, true), XUE_HUA_CENTER_MAP_HINT);

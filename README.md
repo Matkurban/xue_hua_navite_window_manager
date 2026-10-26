@@ -2,7 +2,7 @@
 
 English | [简体中文](./README_ZH.md)
 
-[![Version](https://img.shields.io/badge/version-1.0.3-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
+[![Version](https://img.shields.io/badge/version-1.0.4-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
 [![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.47.0-02569B.svg)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-%5E3.13.0-0175C2.svg)](https://dart.dev)
 [![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-success.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
@@ -107,6 +107,16 @@ class MainFlutterWindow: NSWindow {
   }
 }
 ```
+
+`hide()` calls `orderOut`. The Flutter template returns `true` from `applicationShouldTerminateAfterLastWindowClosed`, and AppKit then quits the process once no window is visible, so a later `show()` never runs. Return `false` when the app hides its window and should keep running (the example does this):
+
+```swift
+override func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
+  return false
+}
+```
+
+Leave the template's `true` only for apps that never call `hide()` and should quit when the last window closes.
 
 ### 2. Windows (`windows/runner/flutter_window.cpp`)
 
@@ -322,6 +332,8 @@ await XueHuaNaviteWindowManager.instance.setTrafficLightsVisible(false);
    - `close()` simulates a standard user close request (respecting `preventClose: true` and firing `onWindowCloseRequested`).
    - `destroy()` forcefully closes the native window immediately, bypassing `preventClose`.
 4. **Windows 11 Snap Layouts (`HTMAXBUTTON`)**: When `SnapLayoutButton` is mounted on Windows, it automatically tracks its own global widget bounds across resizes and reports them to the native `WM_NCHITTEST` handler. Hovering over the button displays the native Windows 11 Snap Layouts flyout while allowing Flutter to render custom hover states via `onSnapButtonHovered`.
+5. **Programmatic size honors min and max**: `setSize`, `setBounds`, and `center(size:)` clamp to the limits stored by `setMinimumSize`, `setMaximumSize`, or `configure`. AppKit `setFrame` and Win32 `SetWindowPos` do not apply those limits themselves, and GTK geometry hints do not constrain `gtk_window_resize` on every window manager. A non-positive limit leaves that edge open.
+6. **macOS `hide()` keeps the process only if you opt in**: see [Native Runner Setup](#native-runner-setup-recommended-for-zero-flash-startup). `applicationShouldTerminateAfterLastWindowClosed` must return `false`, or `orderOut` quits the app.
 
 ---
 
