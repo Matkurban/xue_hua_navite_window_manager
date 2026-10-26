@@ -141,7 +141,12 @@ abstract class XueHuaNaviteWindowManagerPlatform extends PlatformInterface {
   }
 
   /// Centers the window on the current screen.
-  Future<void> center({Size? size, bool animate = false}) {
+  ///
+  /// Returns whether the window system applied the position change.
+  /// Windows, macOS, and X11 return true. Wayland returns false: a mapped
+  /// toplevel cannot be moved, and the unmapped `GTK_WIN_POS_CENTER` hint is
+  /// not a guarantee. The hint is still set before the first map.
+  Future<bool> center({Size? size, bool animate = false}) {
     throw UnimplementedError('center() has not been implemented.');
   }
 
@@ -230,6 +235,23 @@ abstract class XueHuaNaviteWindowManagerPlatform extends PlatformInterface {
   Future<void> setSnapLayoutButtonRect(Rect? rect) {
     throw UnimplementedError(
       'setSnapLayoutButtonRect() has not been implemented.',
+    );
+  }
+
+  /// Registers or clears one Linux move/resize hit region in Flutter logical
+  /// pixels. Wayland starts the matching gesture inside the button-press
+  /// dispatch. Other platforms should ignore the call.
+  ///
+  /// [kind] is `move` or a [ResizeEdge] wire value. [present] false removes
+  /// [id].
+  Future<void> setLinuxInteractiveRegion({
+    required int id,
+    required bool present,
+    String kind = 'move',
+    Rect? rect,
+  }) {
+    throw UnimplementedError(
+      'setLinuxInteractiveRegion() has not been implemented.',
     );
   }
 

@@ -29,6 +29,13 @@ class WindowStateSnapshot {
   /// Whether window close interception is currently active.
   final bool isPreventClose;
 
+  /// Whether [bounds] origin is a position the window system actually applied.
+  ///
+  /// Windows, macOS, and X11 leave this true. Wayland clients cannot set or
+  /// read absolute toplevel positions, so Linux reports false there even when
+  /// [bounds] still contains a GTK cache value.
+  final bool isPositionAuthoritative;
+
   /// Creates a [WindowStateSnapshot].
   const WindowStateSnapshot({
     required this.bounds,
@@ -40,6 +47,7 @@ class WindowStateSnapshot {
     required this.isAlwaysOnTop,
     required this.isResizable,
     required this.isPreventClose,
+    this.isPositionAuthoritative = true,
   });
 
   /// Constructs a [WindowStateSnapshot] from a platform channel dictionary.
@@ -59,6 +67,8 @@ class WindowStateSnapshot {
       isAlwaysOnTop: (map['isAlwaysOnTop'] as bool?) ?? false,
       isResizable: (map['isResizable'] as bool?) ?? true,
       isPreventClose: (map['isPreventClose'] as bool?) ?? false,
+      isPositionAuthoritative:
+          (map['isPositionAuthoritative'] as bool?) ?? true,
     );
   }
 
@@ -77,6 +87,7 @@ class WindowStateSnapshot {
       'isAlwaysOnTop': isAlwaysOnTop,
       'isResizable': isResizable,
       'isPreventClose': isPreventClose,
+      'isPositionAuthoritative': isPositionAuthoritative,
     };
   }
 
@@ -86,6 +97,7 @@ class WindowStateSnapshot {
         'isMaximized: $isMaximized, isMinimized: $isMinimized, '
         'isFullScreen: $isFullScreen, isFocused: $isFocused, '
         'isAlwaysOnTop: $isAlwaysOnTop, isResizable: $isResizable, '
-        'isPreventClose: $isPreventClose)';
+        'isPreventClose: $isPreventClose, '
+        'isPositionAuthoritative: $isPositionAuthoritative)';
   }
 }

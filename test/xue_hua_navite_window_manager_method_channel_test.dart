@@ -106,6 +106,69 @@ void main() {
     },
   );
 
+  test('center treats a missing native result as applied', () async {
+    expect(await platform.center(), isTrue);
+    expect(log.single.method, 'center');
+  });
+
+  test(
+    'center returns false when Linux reports the move was not applied',
+    () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+            log.add(methodCall);
+            return false;
+          });
+      expect(await platform.center(size: const Size(640, 480)), isFalse);
+      final Map<Object?, Object?> args =
+          log.single.arguments as Map<Object?, Object?>;
+      expect(args['width'], 640.0);
+      expect(args['height'], 480.0);
+    },
+  );
+
+  test('setLinuxInteractiveRegion sends the hit rect', () async {
+    await platform.setLinuxInteractiveRegion(
+      id: 7,
+      present: true,
+      kind: 'move',
+      rect: const Rect.fromLTWH(0, 0, 320, 40),
+    );
+    await platform.setLinuxInteractiveRegion(id: 7, present: false);
+
+    expect(log, hasLength(2));
+    expect(log[0].method, 'setLinuxInteractiveRegion');
+    final Map<Object?, Object?> present =
+        log[0].arguments as Map<Object?, Object?>;
+    expect(present['id'], 7);
+    expect(present['present'], isTrue);
+    expect(present['kind'], 'move');
+    expect(present['width'], 320.0);
+    expect(present['height'], 40.0);
+    expect((log[1].arguments as Map<Object?, Object?>)['present'], isFalse);
+  });
+
+  test('snapshot marks a missing position flag as authoritative', () {
+    const WindowStateSnapshot snapshot = WindowStateSnapshot(
+      bounds: Rect.fromLTWH(0, 0, 10, 10),
+      isVisible: true,
+      isMaximized: false,
+      isMinimized: false,
+      isFullScreen: false,
+      isFocused: true,
+      isAlwaysOnTop: false,
+      isResizable: true,
+      isPreventClose: false,
+    );
+    expect(snapshot.isPositionAuthoritative, isTrue);
+    expect(
+      WindowStateSnapshot.fromMap(<Object?, Object?>{
+        'isPositionAuthoritative': false,
+      }).isPositionAuthoritative,
+      isFalse,
+    );
+  });
+
   test(
     'setSnapLayoutButtonRect sends coordinates or disables when null',
     () async {

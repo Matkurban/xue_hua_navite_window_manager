@@ -177,12 +177,20 @@ class MethodChannelXueHuaNaviteWindowManager
   }
 
   @override
-  Future<void> center({Size? size, bool animate = false}) async {
-    await methodChannel.invokeMethod<void>('center', <String, dynamic>{
-      if (size != null) 'width': size.width,
-      if (size != null) 'height': size.height,
-      'animate': animate,
-    });
+  Future<bool> center({Size? size, bool animate = false}) async {
+    final Object? raw = await methodChannel.invokeMethod<Object?>(
+      'center',
+      <String, dynamic>{
+        if (size != null) 'width': size.width,
+        if (size != null) 'height': size.height,
+        'animate': animate,
+      },
+    );
+    // Linux returns a bool. Windows and macOS return null and do apply the move.
+    if (raw is bool) {
+      return raw;
+    }
+    return true;
   }
 
   @override
@@ -311,6 +319,27 @@ class MethodChannelXueHuaNaviteWindowManager
               'width': rect.width,
               'height': rect.height,
             },
+    );
+  }
+
+  @override
+  Future<void> setLinuxInteractiveRegion({
+    required int id,
+    required bool present,
+    String kind = 'move',
+    Rect? rect,
+  }) async {
+    await methodChannel.invokeMethod<void>(
+      'setLinuxInteractiveRegion',
+      <String, dynamic>{
+        'id': id,
+        'present': present,
+        'kind': kind,
+        if (rect != null) 'x': rect.left,
+        if (rect != null) 'y': rect.top,
+        if (rect != null) 'width': rect.width,
+        if (rect != null) 'height': rect.height,
+      },
     );
   }
 
