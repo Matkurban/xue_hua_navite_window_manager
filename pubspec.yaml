@@ -12,6 +12,12 @@ topics:
   - titlebar
   - frameless
 
+screenshots:
+  - description: 'XueHua Native Window Manager Studio on Windows — live geometry telemetry, atomic presets, and event stream.'
+    path: screenshots/windows_studio.png
+  - description: 'Studio controls on Windows — title bar styles, behavior chips, DragArea, and lifecycle actions.'
+    path: screenshots/windows_studio_controls.png
+
 environment:
   sdk: ^3.13.0
   flutter: '>=3.47.0'
