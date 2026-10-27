@@ -1,7 +1,7 @@
-//
-// To learn more about a Podspec see http://guides.cocoapods.org/syntax/podspec.html.
-// Run `pod lib lint xue_hua_navite_window_manager.podspec` to validate before publishing.
-//
+#
+# To learn more about a Podspec see http://guides.cocoapods.org/syntax/podspec.html.
+# Run `pod lib lint xue_hua_navite_window_manager.podspec` to validate before publishing.
+#
 Pod::Spec.new do |s|
   s.name             = 'xue_hua_navite_window_manager'
   s.version          = '1.0.0'

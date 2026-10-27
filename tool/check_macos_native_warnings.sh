@@ -142,36 +142,65 @@ check_example() {
   git -C "$repo_root" status --short -- macos example/macos
 }
 
-# stage_plugin <dir>: lays out <dir>/<plugin> (a copy of the plugin's Swift
-# package) next to <dir>/FlutterFramework, which is where Package.swift looks
-# for it. Flutter generates FlutterFramework (a package that vends the engine
-# xcframework) when it prepares the example app.
-stage_plugin() {
-  local stage="$1" framework
-  framework="$macos_dir/Flutter/ephemeral/Packages/.packages/FlutterFramework"
-  if [[ ! -d "$framework" ]]; then
-    (cd "$example_dir" && flutter pub get >/dev/null && flutter build macos --config-only >/dev/null)
-  fi
-  if [[ ! -d "$framework" ]]; then
-    echo "error: Flutter did not generate $framework." >&2
+# engine_dir: prints the Flutter engine's macOS artifact directory, downloading
+# the artifacts first if needed.
+engine_dir() {
+  local flutter_root
+  flutter precache --macos >/dev/null 2>&1 || true
+  flutter_root="$(flutter --version --machine | sed -n 's/.*"flutterRoot": *"\([^"]*\)".*/\1/p' | head -1)"
+  echo "$flutter_root/bin/cache/artifacts/engine/darwin-x64"
+}
+
+# engine_framework_search_path: prints the directory that holds
+# FlutterMacOS.framework in the Flutter engine artifacts, for swiftc's -F flag.
+# In the example app the same framework is copied next to the build products by
+# Flutter's "prepare" step, which is how `import FlutterMacOS` resolves there.
+engine_framework_search_path() {
+  local xcframework framework
+  xcframework="$(engine_dir)/FlutterMacOS.xcframework"
+  framework="$(find "$xcframework" -maxdepth 2 -type d -name FlutterMacOS.framework 2>/dev/null | head -1)"
+  if [[ -z "$framework" ]]; then
+    echo "error: FlutterMacOS.framework not found under $xcframework." >&2
     return 1
   fi
+  dirname "$framework"
+}
+
+# stage_plugin <dir>: lays out <dir>/<plugin>, a copy of the plugin's Swift
+# package, next to <dir>/FlutterFramework, which is where its Package.swift
+# looks for it. Flutter generates that package for the example app; it is an
+# empty target that only orders the build, so a stand-in with the same product
+# name is equivalent here.
+stage_plugin() {
+  local stage="$1"
   rm -rf "$stage"
-  mkdir -p "$stage"
+  mkdir -p "$stage/FlutterFramework/Sources/FlutterFramework"
+  cat >"$stage/FlutterFramework/Package.swift" <<'PACKAGE'
+// swift-tools-version: 5.9
+import PackageDescription
+
+let package = Package(
+    name: "FlutterFramework",
+    products: [.library(name: "FlutterFramework", targets: ["FlutterFramework"])],
+    targets: [.target(name: "FlutterFramework")]
+)
+PACKAGE
+  : >"$stage/FlutterFramework/Sources/FlutterFramework/FlutterFramework.swift"
   cp -R "$plugin_package" "$stage/$plugin_name"
   rm -rf "$stage/$plugin_name/.build" "$stage/$plugin_name/.swiftpm"
-  ln -s "$framework" "$stage/FlutterFramework"
 }
 
 # build_plugin <stage> <log-prefix>: swift build in every configuration. The
 # plugin is the root package, so SwiftPM reports its warnings. Returns 1 when a
 # build fails; warnings are left in "<log-prefix>-<config>.log" for the caller.
 build_plugin() {
-  local stage="$1" prefix="$2" config
+  local stage="$1" prefix="$2" config frameworks
+  frameworks="$(engine_framework_search_path)" || { failed=1; return 1; }
   for config in debug release; do
     echo "==> plugin/$config: swift build"
     if ! run_logged "$prefix-$config.log" \
-      swift build -c "$config" --package-path "$stage/$plugin_name"; then
+      swift build -c "$config" --package-path "$stage/$plugin_name" \
+      -Xswiftc -F -Xswiftc "$frameworks"; then
       echo "FAIL (plugin/$config): swift build failed." >&2
       failed=1
     fi
@@ -188,24 +217,55 @@ check_plugin() {
 }
 
 check_podspec() {
-  local log="$log_dir/podspec.log"
+  local spec="$repo_root/macos/$plugin_name.podspec" log="$log_dir/podspec.log"
+  local engine configuration lint_log
   echo "==> podspec"
   if ! command -v pod >/dev/null; then
     echo "FAIL (podspec): CocoaPods is not installed." >&2
     failed=1
     return
   fi
-  if ! pod ipc spec "$repo_root/macos/$plugin_name.podspec" >"$log.json" 2>"$log"; then
+
+  # CocoaPods needs a UTF-8 locale. Evaluating the podspec first gives a clear
+  # message for a syntax error, which `pod lib lint` buries in its output.
+  export LANG="${LANG:-en_US.UTF-8}" LC_ALL="${LC_ALL:-en_US.UTF-8}"
+  if ! pod ipc spec "$spec" >"$log.json" 2>"$log"; then
     echo "FAIL (podspec): pod ipc spec failed:" >&2
-    cat "$log" >&2
+    cat "$log" "$log.json" >&2
     failed=1
-  elif [[ -s "$log" ]]; then
+    return
+  fi
+  if [[ -s "$log" ]]; then
     echo "FAIL (podspec): CocoaPods printed diagnostics:" >&2
     cat "$log" >&2
     failed=1
-  else
-    echo "OK (podspec): evaluates without diagnostics."
+    return
   fi
+  echo "OK (podspec): evaluates without diagnostics."
+
+  # Builds the plugin the way a CocoaPods app does, as a pod target, where its
+  # warnings are visible. `pod lib lint` fails on any warning. FlutterMacOS is
+  # not on the CocoaPods trunk; the engine artifacts carry its podspec.
+  engine="$(engine_dir)/FlutterMacOS.podspec"
+  if [[ ! -f "$engine" ]]; then
+    echo "FAIL (podspec): $engine not found." >&2
+    failed=1
+    return
+  fi
+  for configuration in Debug Release; do
+    lint_log="$log_dir/podspec-lint-$configuration.log"
+    echo "==> podspec/$configuration: pod lib lint"
+    if run_logged "$lint_log" pod lib lint "$spec" \
+      --platforms=macos \
+      --include-podspecs="$engine" \
+      --skip-tests \
+      --configuration="$configuration"; then
+      echo "OK (podspec/$configuration): lint passed with no warnings."
+    else
+      echo "FAIL (podspec/$configuration): pod lib lint reported problems." >&2
+      failed=1
+    fi
+  done
 }
 
 self_test() {
