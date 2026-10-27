@@ -35,3 +35,6 @@ migrate_working_dir/
 # Example build outputs
 example/**/build/
 **/build/
+
+# Local manual probe scripts (not part of the package)
+example/_manual_test/
