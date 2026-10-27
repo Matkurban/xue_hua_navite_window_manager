@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        check: ['example', 'plugin podspec', 'self-test']
+        check: ['example', 'plugin podspec', 'pods', 'self-test']
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2

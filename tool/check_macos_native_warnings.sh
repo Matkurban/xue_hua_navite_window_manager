@@ -6,7 +6,7 @@
 #
 # Needs a Mac with Xcode and Flutter on PATH. macOS only (no iOS).
 #
-#   tool/check_macos_native_warnings.sh                  # example plugin podspec
+#   tool/check_macos_native_warnings.sh                  # example plugin podspec pods
 #   tool/check_macos_native_warnings.sh example debug    # one check, one mode
 #   tool/check_macos_native_warnings.sh self-test        # prove the gate can fail
 #
@@ -16,15 +16,19 @@
 #              project, and the SwiftPM manifests.
 #   plugin     The plugin's own Swift package, built as the root package with
 #              `swift build`. SwiftPM suppresses warnings from package
-#              dependencies, and in the example app the plugin is one, so only
-#              this check shows diagnostics in the plugin's Swift sources.
+#              dependencies, and in the example app the plugin is one, so this
+#              is where diagnostics in the plugin's Swift sources show up.
 #   podspec    The podspec evaluates without errors or warnings.
+#   pods       A scratch app that depends on the plugin through CocoaPods, built
+#              in debug and release. CocoaPods does not hide pod warnings. Only
+#              diagnostics that name the plugin count here: the fresh app
+#              template and CocoaPods itself have their own.
 #   self-test  Injects a deliberate warning into a copy of the plugin and
 #              requires the plugin check to report it, so the gate cannot go
 #              blind without anyone noticing.
 #
-# Modes (debug, release, profile) apply to the example check. The plugin check
-# builds debug and release.
+# Modes (debug, release, profile) apply to the example check. The plugin and
+# pods checks build debug and release.
 #
 # CI runs this same script (.github/workflows/ci.yml).
 set -euo pipefail
@@ -37,7 +41,7 @@ checks=()
 modes=()
 for arg in "$@"; do
   case "$arg" in
-    example|plugin|podspec|self-test) checks+=("$arg") ;;
+    example|plugin|podspec|pods|self-test) checks+=("$arg") ;;
     debug|release|profile) modes+=("$arg") ;;
     -h|--help) usage; exit 0 ;;
     *)
@@ -47,7 +51,7 @@ for arg in "$@"; do
       ;;
   esac
 done
-if [[ ${#checks[@]} -eq 0 ]]; then checks=(example plugin podspec); fi
+if [[ ${#checks[@]} -eq 0 ]]; then checks=(example plugin podspec pods); fi
 if [[ ${#modes[@]} -eq 0 ]]; then modes=(debug release); fi
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -72,10 +76,16 @@ warning_pattern='(^|[^[:alnum:]_])warning:'
 
 failed=0
 
-# scan <log> <label>: prints every warning line in <log>; records a failure.
+# scan <log> <label> [name]: prints every warning line in <log> and records a
+# failure. With [name], only warning lines that mention it count.
 scan() {
-  local log="$1" label="$2"
-  if grep -niE "$warning_pattern" "$log" >"$log.warnings"; then
+  local log="$1" label="$2" name="${3:-}"
+  if [[ -n "$name" ]]; then
+    grep -niE "$warning_pattern" "$log" | grep -i "$name" >"$log.warnings" || true
+  else
+    grep -niE "$warning_pattern" "$log" >"$log.warnings" || true
+  fi
+  if [[ -s "$log.warnings" ]]; then
     echo "FAIL ($label): warnings found:" >&2
     cat "$log.warnings" >&2
     failed=1
@@ -218,7 +228,6 @@ check_plugin() {
 
 check_podspec() {
   local spec="$repo_root/macos/$plugin_name.podspec" log="$log_dir/podspec.log"
-  local engine configuration lint_log
   echo "==> podspec"
   if ! command -v pod >/dev/null; then
     echo "FAIL (podspec): CocoaPods is not installed." >&2
@@ -226,45 +235,56 @@ check_podspec() {
     return
   fi
 
-  # CocoaPods needs a UTF-8 locale. Evaluating the podspec first gives a clear
-  # message for a syntax error, which `pod lib lint` buries in its output.
+  # CocoaPods needs a UTF-8 locale.
   export LANG="${LANG:-en_US.UTF-8}" LC_ALL="${LC_ALL:-en_US.UTF-8}"
   if ! pod ipc spec "$spec" >"$log.json" 2>"$log"; then
     echo "FAIL (podspec): pod ipc spec failed:" >&2
     cat "$log" "$log.json" >&2
     failed=1
-    return
-  fi
-  if [[ -s "$log" ]]; then
+  elif [[ -s "$log" ]]; then
     echo "FAIL (podspec): CocoaPods printed diagnostics:" >&2
     cat "$log" >&2
     failed=1
-    return
+  else
+    echo "OK (podspec): evaluates without diagnostics."
   fi
-  echo "OK (podspec): evaluates without diagnostics."
+}
 
-  # Builds the plugin the way a CocoaPods app does, as a pod target, where its
-  # warnings are visible. `pod lib lint` fails on any warning. FlutterMacOS is
-  # not on the CocoaPods trunk; the engine artifacts carry its podspec.
-  engine="$(engine_dir)/FlutterMacOS.podspec"
-  if [[ ! -f "$engine" ]]; then
-    echo "FAIL (podspec): $engine not found." >&2
+check_pods() {
+  local app="$log_dir/pods-consumer" mode log
+  echo "==> pods: scratch app that uses the plugin through CocoaPods"
+  if ! command -v pod >/dev/null; then
+    echo "FAIL (pods): CocoaPods is not installed." >&2
     failed=1
     return
   fi
-  for configuration in Debug Release; do
-    lint_log="$log_dir/podspec-lint-$configuration.log"
-    echo "==> podspec/$configuration: pod lib lint"
-    if run_logged "$lint_log" pod lib lint "$spec" \
-      --platforms=macos \
-      --include-podspecs="$engine" \
-      --skip-tests \
-      --configuration="$configuration"; then
-      echo "OK (podspec/$configuration): lint passed with no warnings."
-    else
-      echo "FAIL (podspec/$configuration): pod lib lint reported problems." >&2
+  export LANG="${LANG:-en_US.UTF-8}" LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
+  rm -rf "$app"
+  if ! run_logged "$log_dir/pods-create.log" flutter create --platforms=macos \
+    --project-name pods_consumer "$app" >/dev/null ||
+    ! (cd "$app" && run_logged "$log_dir/pods-add.log" flutter pub add \
+      "$plugin_name" --path "$repo_root" >/dev/null); then
+    echo "FAIL (pods): could not create the scratch app." >&2
+    failed=1
+    return
+  fi
+
+  # Opt this one project out of Swift Package Manager, so Flutter integrates the
+  # plugin through its podspec. The global Flutter setting is left alone.
+  perl -0pi -e 's/^flutter:\n/flutter:\n  config:\n    enable-swift-package-manager: false\n/m' "$app/pubspec.yaml"
+  (cd "$app" && flutter pub get >/dev/null)
+
+  for mode in debug release; do
+    log="$log_dir/pods-$mode.log"
+    echo "==> pods/$mode: clean build"
+    rm -rf "$app/build/macos" "$app/macos/Pods"
+    if ! run_logged "$log" bash -c "cd '$app' && flutter build macos --$mode"; then
+      echo "FAIL (pods/$mode): flutter build macos failed." >&2
       failed=1
+      continue
     fi
+    scan "$log" "pods/$mode" "$plugin_name"
   done
 }
 
@@ -297,6 +317,7 @@ for check in "${checks[@]}"; do
     example) check_example ;;
     plugin) check_plugin ;;
     podspec) check_podspec ;;
+    pods) check_pods ;;
     self-test) self_test ;;
   esac
 done
