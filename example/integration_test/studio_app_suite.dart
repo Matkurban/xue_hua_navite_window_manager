@@ -39,6 +39,20 @@ Future<void> _pumpUntilFound(
   }
 }
 
+/// Pumps frames until the native window reports itself visible.
+Future<void> _pumpUntilVisible(
+  WidgetTester tester, {
+  Duration timeout = kStateTimeout,
+}) async {
+  final Stopwatch watch = Stopwatch()..start();
+  while (!(await windowManager.getState()).isVisible) {
+    if (watch.elapsed > timeout) {
+      throw TestFailure('The window did not become visible.');
+    }
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
 /// Scrolls [finder] into view and taps it. The Studio is a scrolling dashboard
 /// and the window is smaller than its full height.
 Future<void> _tap(WidgetTester tester, Finder finder) async {
@@ -185,29 +199,38 @@ void main() {
     await _launchStudio(tester);
     final Size screen = sizes.screen;
 
-    // A preset is only asserted when the display can hold it; otherwise the
-    // window system may legitimately limit the window.
-    const Size plain = Size(1100, 720);
-    await _tap(tester, find.text('System TitleBar (1100×720)'));
-    if (screen.width >= plain.width + 100 &&
-        screen.height >= plain.height + 140) {
-      await waitForSize(plain, reason: 'the System TitleBar preset');
+    // Each preset is an async handler that logs a line when its configure call
+    // has finished. Waiting for that line keeps the handler from outliving the
+    // test. The size is only asserted when the display can hold the preset;
+    // otherwise the window system may legitimately limit the window.
+    Future<void> applyPreset(String button, String logLine, Size size) async {
+      await _tap(tester, find.text(button));
+      await _pumpUntilFound(tester, find.textContaining(logLine));
+      if (screen.width >= size.width + 100 &&
+          screen.height >= size.height + 140) {
+        await waitForSize(size, reason: 'the "$button" preset');
+      }
     }
 
-    const Size compact = Size(980, 660);
-    await _tap(tester, find.text('Compact Immersive (980×660)'));
-    if (screen.width >= compact.width + 100 &&
-        screen.height >= compact.height + 140) {
-      await waitForSize(compact, reason: 'the Compact Immersive preset');
-    }
+    await applyPreset(
+      'System TitleBar (1100×720)',
+      'Atomic configure -> System Normal',
+      const Size(1100, 720),
+    );
+    await applyPreset(
+      'Compact Immersive (980×660)',
+      'Atomic configure -> Compact Immersive',
+      const Size(980, 660),
+    );
+    await applyPreset(
+      'Studio Preset (1280×820 Centered)',
+      'Atomic configure -> Studio Default',
+      const Size(1280, 820),
+    );
 
-    const Size studio = Size(1280, 820);
-    await _tap(tester, find.text('Studio Preset (1280×820 Centered)'));
-    if (screen.width >= studio.width + 100 &&
-        screen.height >= studio.height + 140) {
-      await waitForSize(studio, reason: 'the Studio preset');
-    }
-    expect((await windowManager.getState()).isVisible, isTrue);
+    // The presets use showWhenReady, so the window is revealed after the next
+    // frame. macOS conceals it until then.
+    await _pumpUntilVisible(tester);
     expect(tester.takeException(), isNull);
   });
 
