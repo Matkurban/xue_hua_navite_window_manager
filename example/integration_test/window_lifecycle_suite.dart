@@ -108,35 +108,36 @@ void main() {
     );
   });
 
-  windowTest('maximize fills the work area and unmaximize restores the bounds', (
-    WidgetTester tester,
-  ) async {
-    if (!await ensureWindowSystemHonorsStateChanges()) {
-      return;
-    }
-    final Rect before = await waitForStableBounds();
+  windowTest(
+    'maximize fills the work area and unmaximize restores the bounds',
+    (WidgetTester tester) async {
+      if (!await ensureWindowSystemHonorsStateChanges()) {
+        return;
+      }
+      final Rect before = await waitForStableBounds();
 
-    await windowManager.maximize();
-    final WindowStateSnapshot maximized = await waitForState(
-      (WindowStateSnapshot s) => s.isMaximized,
-      reason: 'maximize() to take effect',
-    );
-    expect(maximized.bounds.width, greaterThan(before.width));
-    expect(maximized.bounds.height, greaterThan(before.height));
+      await windowManager.maximize();
+      final WindowStateSnapshot maximized = await waitForState(
+        (WindowStateSnapshot s) => s.isMaximized,
+        reason: 'maximize() to take effect',
+      );
+      expect(maximized.bounds.width, greaterThan(before.width));
+      expect(maximized.bounds.height, greaterThan(before.height));
 
-    await windowManager.unmaximize();
-    await waitForState(
-      (WindowStateSnapshot s) => !s.isMaximized,
-      reason: 'unmaximize() to take effect',
-    );
-    final Rect after = await waitForBounds(
-      (Rect bounds) => sizeIsNear(bounds.size, before.size),
-      reason: 'unmaximize() to restore the previous size',
-    );
-    if (await positionsAreAuthoritative()) {
-      expectOffsetNear(after.topLeft, before.topLeft);
-    }
-  });
+      await windowManager.unmaximize();
+      await waitForState(
+        (WindowStateSnapshot s) => !s.isMaximized,
+        reason: 'unmaximize() to take effect',
+      );
+      final Rect after = await waitForBounds(
+        (Rect bounds) => sizeIsNear(bounds.size, before.size),
+        reason: 'unmaximize() to restore the previous size',
+      );
+      if (await positionsAreAuthoritative()) {
+        expectOffsetNear(after.topLeft, before.topLeft);
+      }
+    },
+  );
 
   windowTest('toggleMaximize switches between maximized and normal', (
     WidgetTester tester,

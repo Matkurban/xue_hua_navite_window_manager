@@ -83,31 +83,32 @@ void main() {
     expectSizeNear(bounds.size, size);
   });
 
-  windowTest('animated setSize, setPosition, and setBounds reach their target', (
-    WidgetTester tester,
-  ) async {
-    final TestSizes metrics = sizes;
+  windowTest(
+    'animated setSize, setPosition, and setBounds reach their target',
+    (WidgetTester tester) async {
+      final TestSizes metrics = sizes;
 
-    // macOS animates the frame change; the other platforms apply it at once.
-    // Either way the window must end up exactly at the requested geometry.
-    await windowManager.setSize(metrics.smaller, animate: true);
-    await waitForSize(metrics.smaller);
+      // macOS animates the frame change; the other platforms apply it at once.
+      // Either way the window must end up exactly at the requested geometry.
+      await windowManager.setSize(metrics.smaller, animate: true);
+      await waitForSize(metrics.smaller);
 
-    final Rect target = Rect.fromLTWH(
-      110,
-      130,
-      metrics.larger.width,
-      metrics.larger.height,
-    );
-    await windowManager.setBounds(target, animate: true);
-    await waitForSize(metrics.larger);
+      final Rect target = Rect.fromLTWH(
+        110,
+        130,
+        metrics.larger.width,
+        metrics.larger.height,
+      );
+      await windowManager.setBounds(target, animate: true);
+      await waitForSize(metrics.larger);
 
-    if (await positionsAreAuthoritative()) {
-      await waitForPosition(target.topLeft);
-      await windowManager.setPosition(const Offset(80, 90), animate: true);
-      await waitForPosition(const Offset(80, 90));
-    }
-  });
+      if (await positionsAreAuthoritative()) {
+        await waitForPosition(target.topLeft);
+        await windowManager.setPosition(const Offset(80, 90), animate: true);
+        await waitForPosition(const Offset(80, 90));
+      }
+    },
+  );
 
   windowTest('center reports whether the window system applied the move', (
     WidgetTester tester,
@@ -155,9 +156,7 @@ void main() {
     );
   });
 
-  windowTest('center is stable when called twice', (
-    WidgetTester tester,
-  ) async {
+  windowTest('center is stable when called twice', (WidgetTester tester) async {
     if (!await positionsAreAuthoritative()) {
       markTestSkipped('Wayland compositors choose where windows are placed.');
       return;
@@ -205,7 +204,10 @@ void main() {
     WidgetTester tester,
   ) async {
     final TestSizes metrics = sizes;
-    final Size huge = Size(metrics.maxLimit.width * 3, metrics.maxLimit.height * 3);
+    final Size huge = Size(
+      metrics.maxLimit.width * 3,
+      metrics.maxLimit.height * 3,
+    );
     await windowManager.setMaximumSize(metrics.maxLimit);
 
     await windowManager.setSize(huge);

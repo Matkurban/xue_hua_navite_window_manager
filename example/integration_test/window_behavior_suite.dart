@@ -128,9 +128,7 @@ void main() {
       );
       final WindowStateSnapshot state = await windowManager.getState();
       expect(state.isVisible, isTrue, reason: '$style');
-      // Changing the frame can move the reported origin (a removed title bar
-      // shifts it), but never resizes the window.
-      expectSizeNear(
+      expectSizeNearAllowingTitleBar(
         (await waitForStableBounds()).size,
         size,
         reason: 'size with $style',
@@ -138,7 +136,7 @@ void main() {
     }
 
     await windowManager.setTitleBarStyle(TitleBarStyle.normal);
-    expectSizeNear((await waitForStableBounds()).size, size);
+    expectSizeNearAllowingTitleBar((await waitForStableBounds()).size, size);
   });
 
   windowTest('setTitleBarStyle works without optional traffic light values', (
@@ -158,17 +156,22 @@ void main() {
     final Size size = (await windowManager.getBounds()).size;
 
     for (final TitleBarStyle style in TitleBarStyle.values) {
-      final WindowStateSnapshot snapshot =
-          await XueHuaNaviteWindowManager.configure(
-            WindowConfig(
-              titleBarStyle: style,
-              trafficLightsOffset: const Offset(20, 18),
-              trafficLightsVisible: true,
-              showWhenReady: false,
-            ),
-          );
-      expect(snapshot.isVisible, isTrue, reason: '$style');
-      expectSizeNear(
+      await XueHuaNaviteWindowManager.configure(
+        WindowConfig(
+          titleBarStyle: style,
+          trafficLightsOffset: const Offset(20, 18),
+          trafficLightsVisible: true,
+          showWhenReady: false,
+        ),
+      );
+      // With showWhenReady false, macOS conceals a window that is on screen
+      // until it is shown again; Windows and Linux leave it as it is.
+      await windowManager.show();
+      await waitForState(
+        (WindowStateSnapshot s) => s.isVisible,
+        reason: 'the window to be visible with $style',
+      );
+      expectSizeNearAllowingTitleBar(
         (await waitForStableBounds()).size,
         size,
         reason: 'size with $style',

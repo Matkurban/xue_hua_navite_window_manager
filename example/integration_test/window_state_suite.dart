@@ -105,13 +105,14 @@ void main() {
   windowTest('configure can turn resizable and alwaysOnTop off again', (
     WidgetTester tester,
   ) async {
-    final WindowStateSnapshot locked = await XueHuaNaviteWindowManager.configure(
-      const WindowConfig(
-        resizable: false,
-        alwaysOnTop: true,
-        showWhenReady: false,
-      ),
-    );
+    final WindowStateSnapshot locked =
+        await XueHuaNaviteWindowManager.configure(
+          const WindowConfig(
+            resizable: false,
+            alwaysOnTop: true,
+            showWhenReady: false,
+          ),
+        );
     expect(locked.isResizable, isFalse);
     expect(locked.isAlwaysOnTop, isTrue);
 
