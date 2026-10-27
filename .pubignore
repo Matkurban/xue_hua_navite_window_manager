@@ -3,3 +3,5 @@ example/_manual_test/
 **/build/
 example/**/build/
 example/.dart_tool/
+.github/
+tool/

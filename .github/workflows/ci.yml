@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.47.8'
+
+jobs:
+  dart:
+    name: Analyze and test (Dart)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        run: |
+          flutter pub get
+          cd example && flutter pub get
+      - name: Analyze package
+        run: flutter analyze
+      - name: Analyze example
+        run: cd example && flutter analyze
+      - name: Test package
+        run: flutter test
+      - name: Test example
+        run: cd example && flutter test
+
+  macos-native:
+    name: macOS native build (zero warnings)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Toolchain versions
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+          flutter --version
+      - name: Build the example and fail on any Xcode, clang, swiftc or linker warning
+        run: bash tool/check_macos_native_warnings.sh
+      - name: Report tracked files that Flutter migrations rewrote
+        if: always()
+        run: git status --short -- macos example/macos
