@@ -337,6 +337,49 @@ await XueHuaNaviteWindowManager.instance.setTrafficLightsVisible(false);
 
 ---
 
+## 测试
+
+| 内容 | 命令 | 需要 |
+| :--- | :--- | :--- |
+| 插件包单元与组件测试 | `flutter test` | 任意主机 |
+| 示例工程组件测试 | `cd example && flutter test` | 任意主机 |
+| 集成测试 | `cd example && flutter test integration_test -d macos`（或 `-d windows`、`-d linux`） | 对应的桌面系统，且有显示器或虚拟显示 |
+| macOS 原生警告检查 | `tool/check_macos_native_warnings.sh` | 安装了 Xcode 的 Mac |
+
+### 集成测试
+
+`example/integration_test` 通过公开 API 驱动示例应用真实的原生窗口：`configure`、`getState`、几何（`setSize`、`setPosition`、`setBounds`、`center`、最小/最大尺寸、`setResizable`）、`show` / `hide` / `focus` / `blur`、`maximize` / `unmaximize` / `minimize` / `restore`、全屏、`setAlwaysOnTop`、`setPreventClose` 与被拦截的 `close()`、标题、标题栏样式、透明度、背景色、阴影、macOS / Windows / Linux 各自的专有调用、事件流与 `WindowListener`、组件（`WindowCaption`、`DragArea`、`SnapLayoutButton`、`WindowResizeEdgeArea`），以及通过自身界面操作的示例 Studio 应用。
+
+`plugin_integration_test.dart` 是该目录中唯一的 `*_test.dart` 文件，这是有意为之。`flutter test` 会为每个测试文件重新启动一次应用，而在桌面端（Flutter 3.47）第二次及之后的启动都会失败，报错 `The log reader stopped unexpectedly, or never started`。因此各测试套件放在 `*_suite.dart` 中，由 `plugin_integration_test.dart` 在一次启动里统一运行。单个套件仍可单独运行：
+
+```bash
+cd example
+flutter test integration_test/window_geometry_suite.dart -d macos
+```
+
+每个测试都从已知的窗口状态开始，结束后恢复；并且会等待窗口系统生效，而不是调用后立即断言，因为最大化、最小化、全屏和焦点切换都由操作系统完成。
+
+**Linux。** 请在桌面会话中运行，或在 `xvfb-run` 下无头运行。裸 Xvfb 没有窗口管理器，而最大化、最小化、全屏和焦点都依赖它，所以这些测试会带着提示信息跳过。要包含它们，请在旁边运行一个窗口管理器；加上下面的 define 可以让缺少窗口管理器时失败而不是跳过：
+
+```bash
+xvfb-run -a bash -c 'openbox & sleep 2; flutter test integration_test -d linux --dart-define=XUE_HUA_REQUIRE_WINDOW_MANAGER=true'
+```
+
+**有意不执行的部分。** `startDragging()` 与 `startResizing()` 会启动跟随鼠标按键的系统级移动或缩放。没有按下的按键时，窗口管理器可能不再响应缩放，Windows 则会阻塞在模态循环里。所有集成测试都运行在一个只记录这两个调用、绝不转发的平台包装器上，因此测试仍然可以断言某个手势发出了哪个调用。`destroy()`，以及关闭 `preventClose` 后的 `close()`，会结束运行测试的进程；`close()` 只会在确认 `preventClose` 已开启后才调用。Windows 11 Snap Layout 的悬停与点击需要真实鼠标。
+
+### macOS 原生警告
+
+`tool/check_macos_native_warnings.sh` 会从零开始构建，并在出现任何编译器、链接器、资源目录、SwiftPM、CocoaPods 或 `xcodebuild` 警告时失败：
+
+- `example`：示例应用的 debug 与 release 构建，以及 `RunnerTests` XCTest 目标。
+- `plugin`：把插件的 Swift 包作为根包构建。SwiftPM 会隐藏依赖包的警告，而示例应用里插件正是依赖包，所以插件自身的诊断只会出现在这里。
+- `podspec` 与 `pods`：podspec 本身，以及一个通过 CocoaPods 使用本插件的临时应用。
+- `self-test`：向插件副本中注入一条警告，并要求检查脚本报告它。
+
+GitHub Actions（`.github/workflows/ci.yml`）会对每个拉取请求运行 Dart 检查、该警告检查、XCTest 单元测试，以及 macOS、Windows、Linux 上的集成测试。
+
+---
+
 ## 作者与开源协议
 
 - **作者**：Matkurban (`3496354336@qq.com`)
