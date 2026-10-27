@@ -14,7 +14,7 @@ High-performance cross-platform desktop window manager plugin for Flutter (macOS
   s.author           = { 'Matkurban' => '3496354336@qq.com' }
 
   s.source           = { :path => '.' }
-  s.source_files = 'xue_hua_navite_window_manager/Sources/xue_hua_navite_window_manager/**/*'
+  s.source_files = 'xue_hua_navite_window_manager/Sources/xue_hua_navite_window_manager/**/*.swift'
   s.resource_bundles = {'xue_hua_navite_window_manager_privacy' => ['xue_hua_navite_window_manager/Sources/xue_hua_navite_window_manager/PrivacyInfo.xcprivacy']}
 
   s.dependency 'FlutterMacOS'

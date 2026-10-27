@@ -76,14 +76,19 @@ warning_pattern='(^|[^[:alnum:]_])warning:'
 
 failed=0
 
-# scan <log> <label> [name]: prints every warning line in <log> and records a
-# failure. With [name], only warning lines that mention it count.
+# scan <log> <label> [name] [ignore]: prints every warning line in <log> and
+# records a failure. With [name], only warning lines that mention it count.
+# Lines that match the [ignore] regular expression are dropped first.
 scan() {
-  local log="$1" label="$2" name="${3:-}"
+  local log="$1" label="$2" name="${3:-}" ignore="${4:-}"
+  grep -niE "$warning_pattern" "$log" >"$log.warnings" || true
+  if [[ -n "$ignore" ]]; then
+    grep -viE "$ignore" "$log.warnings" >"$log.warnings.filtered" || true
+    mv "$log.warnings.filtered" "$log.warnings"
+  fi
   if [[ -n "$name" ]]; then
-    grep -niE "$warning_pattern" "$log" | grep -i "$name" >"$log.warnings" || true
-  else
-    grep -niE "$warning_pattern" "$log" >"$log.warnings" || true
+    grep -i "$name" "$log.warnings" >"$log.warnings.filtered" || true
+    mv "$log.warnings.filtered" "$log.warnings"
   fi
   if [[ -s "$log.warnings" ]]; then
     echo "FAIL ($label): warnings found:" >&2
@@ -284,7 +289,10 @@ check_pods() {
       failed=1
       continue
     fi
-    scan "$log" "pods/$mode" "$plugin_name"
+    # Xcode 26 on a runner without the optional Metal toolchain adds a stale Swift
+    # library path for it to every CocoaPods-generated target, the scratch app's
+    # own Runner included. That is the machine's Xcode install, not this plugin.
+    scan "$log" "pods/$mode" "$plugin_name" "search path '.*MetalToolchain.*' not found"
   done
 }
 
