@@ -127,7 +127,11 @@ Future<bool> tryWaitForState(
   Duration timeout = kStateTimeout,
 }) async {
   try {
-    await waitForState(predicate, reason: 'a best-effort condition', timeout: timeout);
+    await waitForState(
+      predicate,
+      reason: 'a best-effort condition',
+      timeout: timeout,
+    );
     return true;
   } on TestFailure {
     return false;
@@ -200,12 +204,20 @@ Future<Rect> waitForStableBounds({
   }
 }
 
-bool sizeIsNear(Size actual, Size expected, [double tolerance = kGeometryTolerance]) {
+bool sizeIsNear(
+  Size actual,
+  Size expected, [
+  double tolerance = kGeometryTolerance,
+]) {
   return (actual.width - expected.width).abs() <= tolerance &&
       (actual.height - expected.height).abs() <= tolerance;
 }
 
-bool offsetIsNear(Offset actual, Offset expected, [double tolerance = kGeometryTolerance]) {
+bool offsetIsNear(
+  Offset actual,
+  Offset expected, [
+  double tolerance = kGeometryTolerance,
+]) {
   return (actual.dx - expected.dx).abs() <= tolerance &&
       (actual.dy - expected.dy).abs() <= tolerance;
 }
@@ -222,7 +234,31 @@ void expectSizeNear(
   expect(
     sizeIsNear(actual, expected, tolerance),
     isTrue,
-    reason: '${reason ?? 'size'}: expected ~${_describe(expected)} (+/-$tolerance) but was ${_describe(actual)}',
+    reason:
+        '${reason ?? 'size'}: expected ~${_describe(expected)} (+/-$tolerance) but was ${_describe(actual)}',
+  );
+}
+
+/// The tallest title bar a platform adds or removes when the title bar style
+/// changes. AppKit keeps the content size when `.fullSizeContentView` is toggled,
+/// so on macOS the window frame itself grows or shrinks by the title bar height
+/// (32 logical pixels); Windows and Linux keep the frame size.
+const double kTitleBarAllowance = 64.0;
+
+/// Expects the width to match and the height to differ by at most one title bar.
+void expectSizeNearAllowingTitleBar(
+  Size actual,
+  Size expected, {
+  String? reason,
+}) {
+  expect(
+    (actual.width - expected.width).abs() <= kGeometryTolerance &&
+        (actual.height - expected.height).abs() <= kTitleBarAllowance,
+    isTrue,
+    reason:
+        '${reason ?? 'size'}: expected width ~${expected.width} and height within '
+        '$kTitleBarAllowance of ${expected.height}, but was '
+        '${actual.width}x${actual.height}',
   );
 }
 
@@ -236,7 +272,8 @@ void expectOffsetNear(
   expect(
     offsetIsNear(actual, expected, tolerance),
     isTrue,
-    reason: '${reason ?? 'position'}: expected ~$expected (+/-$tolerance) but was $actual',
+    reason:
+        '${reason ?? 'position'}: expected ~$expected (+/-$tolerance) but was $actual',
   );
 }
 
@@ -392,8 +429,57 @@ Future<void> restoreWindowSafely() async {
   }
 }
 
+/// The platform implementation every [windowTest] runs on.
+///
+/// It forwards every call to the real native plugin except `startDragging` and
+/// `startResizing`, which it records and does NOT forward. Both begin an
+/// operating-system move or resize that follows a held pointer button. A test
+/// has no such button, and the result is a window system that waits for a
+/// release that never comes: on Linux the window manager stops honoring resizes
+/// and on Windows the call blocks in a modal loop. Flutter fires `onPanStart`
+/// even for a plain tap when no other recognizer competes, so a synthesized tap
+/// on a DragArea is enough to trigger it.
+///
+/// Tests can still assert which native calls a gesture would have made.
+class GuardedPlatform extends MethodChannelXueHuaNaviteWindowManager {
+  GuardedPlatform(this._original);
+
+  final XueHuaNaviteWindowManagerPlatform _original;
+
+  /// The pointer-driven calls that were blocked, oldest first.
+  final List<String> pointerCalls = <String>[];
+
+  /// Shares the original event stream. Subscribing to the EventChannel a second
+  /// time would replace the native stream handler and silence the controller's
+  /// own subscription.
+  @override
+  Stream<WindowEvent> get windowEvents => _original.windowEvents;
+
+  @override
+  Future<void> startDragging() async {
+    pointerCalls.add('startDragging');
+  }
+
+  @override
+  Future<void> startResizing(ResizeEdge edge) async {
+    pointerCalls.add('startResizing:${edge.wireValue}');
+  }
+}
+
+GuardedPlatform? _activeGuard;
+
+/// The guard installed by the running [windowTest].
+GuardedPlatform get pointerGuard {
+  final GuardedPlatform? guard = _activeGuard;
+  if (guard == null) {
+    throw StateError('pointerGuard is only available inside windowTest.');
+  }
+  return guard;
+}
+
 /// A `testWidgets` that starts from [resetWindow] and always restores the
-/// window, so a failing test cannot leave the next one minimized or hidden.
+/// window, so a failing test cannot leave the next one minimized or hidden. It
+/// also runs on a [GuardedPlatform], so no gesture can start an OS-level drag.
 void windowTest(
   String description,
   Future<void> Function(WidgetTester tester) body, {
@@ -403,6 +489,16 @@ void windowTest(
   testWidgets(
     description,
     (WidgetTester tester) async {
+      final XueHuaNaviteWindowManagerPlatform original =
+          XueHuaNaviteWindowManagerPlatform.instance;
+      final GuardedPlatform guard = GuardedPlatform(original);
+      XueHuaNaviteWindowManagerPlatform.instance = guard;
+      _activeGuard = guard;
+      addTearDown(() {
+        _activeGuard = null;
+        XueHuaNaviteWindowManagerPlatform.instance = original;
+      });
+
       await resetWindow();
       addTearDown(restoreWindowSafely);
       await body(tester);
