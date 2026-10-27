@@ -20,6 +20,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:xue_hua_navite_window_manager/xue_hua_navite_window_manager.dart';
 
+import 'window_behavior_suite.dart' as behavior;
+import 'window_events_suite.dart' as events;
 import 'window_geometry_suite.dart' as geometry;
 import 'window_lifecycle_suite.dart' as lifecycle;
 import 'window_state_suite.dart' as state;
@@ -49,4 +51,6 @@ void main() {
   group('state', state.main);
   group('geometry', geometry.main);
   group('lifecycle', lifecycle.main);
+  group('behavior', behavior.main);
+  group('events', events.main);
 }
