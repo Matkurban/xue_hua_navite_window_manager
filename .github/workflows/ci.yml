@@ -135,9 +135,13 @@ jobs:
           channel: stable
           cache: true
       - name: Install Linux desktop build dependencies, Xvfb and a window manager
+        timeout-minutes: 15
+        env:
+          DEBIAN_FRONTEND: noninteractive
+          NEEDRESTART_MODE: a
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config \
+          sudo apt-get -o Acquire::Retries=5 update
+          sudo apt-get -o Acquire::Retries=5 install -y clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-14-dev \
             xvfb openbox libgl1-mesa-dri libegl1
       # Flutter's documentation runs Linux integration tests under xvfb-run. A
