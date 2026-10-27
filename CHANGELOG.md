@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 1.0.5
+
 * **CocoaPods on macOS:** the podspec could not be used. It began with `//` comment lines, which are not Ruby, so CocoaPods rejected it with `Invalid podspec file: syntax error`. Once it parsed, every CocoaPods build also printed `no rule to process file ... PrivacyInfo.xcprivacy`, because the `source_files` glob compiled the privacy manifest as a source file. `source_files` now lists only the Swift sources; the manifest still ships through `resource_bundles`. Swift Package Manager builds were never affected.
 * **Zero-warning macOS build:** the example's Debug build no longer prints Xcode's "Run script build phase will be run during every build" warning for the `Flutter Assemble` phase, which Flutter's own template still triggers. The `RunnerTests` bundle now targets macOS 14.0, because Xcode 26's XCTest is built for it and linking at 12.0 printed an `ld` warning. The app and the plugin still target macOS 12.0. `tool/check_macos_native_warnings.sh` fails on any compiler, linker, SwiftPM, CocoaPods, or `xcodebuild` warning and runs in CI.
 * **Example Studio:** the atomic preset buttons no longer call `setState` after the widget was disposed.
