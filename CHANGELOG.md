@@ -1,3 +1,12 @@
+## Unreleased
+
+* **CocoaPods on macOS:** the podspec could not be used. It began with `//` comment lines, which are not Ruby, so CocoaPods rejected it with `Invalid podspec file: syntax error`. Once it parsed, every CocoaPods build also printed `no rule to process file ... PrivacyInfo.xcprivacy`, because the `source_files` glob compiled the privacy manifest as a source file. `source_files` now lists only the Swift sources; the manifest still ships through `resource_bundles`. Swift Package Manager builds were never affected.
+* **Zero-warning macOS build:** the example's Debug build no longer prints Xcode's "Run script build phase will be run during every build" warning for the `Flutter Assemble` phase, which Flutter's own template still triggers. The `RunnerTests` bundle now targets macOS 14.0, because Xcode 26's XCTest is built for it and linking at 12.0 printed an `ld` warning. The app and the plugin still target macOS 12.0. `tool/check_macos_native_warnings.sh` fails on any compiler, linker, SwiftPM, CocoaPods, or `xcodebuild` warning and runs in CI.
+* **Example Studio:** the atomic preset buttons no longer call `setState` after the widget was disposed.
+* **Integration tests:** `example/integration_test` now covers the public API against the real native window on macOS, Windows, and Linux: state and `configure`, geometry, show and hide, maximize, minimize, fullscreen, behavior flags, the intercepted close, the event stream, the widgets, and the example Studio app. The suites run in one app launch through `plugin_integration_test.dart`.
+* **Unit tests:** the models, the wire payload of every platform channel call, the controller, and the `DragArea` and `WindowResizeEdgeArea` pointer behavior are covered by `flutter test`.
+* **CI:** GitHub Actions runs analyze, unit tests, the macOS warning gate, the macOS XCTest unit tests, and the integration tests on macOS, Windows, and Linux.
+
 ## 1.0.4
 
 * **Min/max on programmatic resize:** `setSize`, `setBounds`, and `center(size:)` clamp to the stored minimum and maximum on macOS, Windows, and Linux. AppKit `setFrame` and Win32 `SetWindowPos` ignore those limits, so `setSize(500, 400)` after `setMinimumSize(850, 560)` previously kept 500×400. Linux `configure` now clamps the same way macOS and Windows already did. A non-positive limit leaves that edge open; if both are set and the maximum is below the minimum, the minimum wins.

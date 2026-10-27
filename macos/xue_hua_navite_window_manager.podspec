@@ -1,7 +1,7 @@
-//
-// To learn more about a Podspec see http://guides.cocoapods.org/syntax/podspec.html.
-// Run `pod lib lint xue_hua_navite_window_manager.podspec` to validate before publishing.
-//
+#
+# To learn more about a Podspec see http://guides.cocoapods.org/syntax/podspec.html.
+# Run `pod lib lint xue_hua_navite_window_manager.podspec` to validate before publishing.
+#
 Pod::Spec.new do |s|
   s.name             = 'xue_hua_navite_window_manager'
   s.version          = '1.0.0'
@@ -14,7 +14,7 @@ High-performance cross-platform desktop window manager plugin for Flutter (macOS
   s.author           = { 'Matkurban' => '3496354336@qq.com' }
 
   s.source           = { :path => '.' }
-  s.source_files = 'xue_hua_navite_window_manager/Sources/xue_hua_navite_window_manager/**/*'
+  s.source_files = 'xue_hua_navite_window_manager/Sources/xue_hua_navite_window_manager/**/*.swift'
   s.resource_bundles = {'xue_hua_navite_window_manager_privacy' => ['xue_hua_navite_window_manager/Sources/xue_hua_navite_window_manager/PrivacyInfo.xcprivacy']}
 
   s.dependency 'FlutterMacOS'

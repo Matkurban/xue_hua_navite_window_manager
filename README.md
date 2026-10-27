@@ -337,6 +337,49 @@ await XueHuaNaviteWindowManager.instance.setTrafficLightsVisible(false);
 
 ---
 
+## Testing
+
+| What | Command | Needs |
+| :--- | :--- | :--- |
+| Package unit and widget tests | `flutter test` | any host |
+| Example widget tests | `cd example && flutter test` | any host |
+| Integration tests | `cd example && flutter test integration_test -d macos` (or `-d windows`, `-d linux`) | that desktop OS, with a display |
+| macOS native warning gate | `tool/check_macos_native_warnings.sh` | a Mac with Xcode |
+
+### Integration tests
+
+`example/integration_test` drives the real native window of the example app through the public API: `configure`, `getState`, geometry (`setSize`, `setPosition`, `setBounds`, `center`, minimum and maximum size, `setResizable`), `show` / `hide` / `focus` / `blur`, `maximize` / `unmaximize` / `minimize` / `restore`, fullscreen, `setAlwaysOnTop`, `setPreventClose` and the intercepted `close()`, title, title bar styles, opacity, background color, shadow, the macOS, Windows, and Linux specific calls, the event stream and `WindowListener`, the widgets (`WindowCaption`, `DragArea`, `SnapLayoutButton`, `WindowResizeEdgeArea`), and the example Studio app driven through its own UI.
+
+`plugin_integration_test.dart` is the only `*_test.dart` file there on purpose. `flutter test` starts a fresh app for every test file, and on desktop (Flutter 3.47) every launch after the first one fails with `The log reader stopped unexpectedly, or never started`, so the suites live in `*_suite.dart` files that `plugin_integration_test.dart` runs in one launch. One suite can still run alone:
+
+```bash
+cd example
+flutter test integration_test/window_geometry_suite.dart -d macos
+```
+
+Each test starts from a known window state and puts it back afterwards, and waits for the window system instead of asserting right after a call, because maximize, minimize, fullscreen, and focus are carried out by the OS.
+
+**Linux.** Run the tests inside a desktop session, or headless under `xvfb-run`. A bare Xvfb has no window manager, which maximize, minimize, fullscreen, and focus need, so those tests skip with a message there. Run a window manager next to it to include them, and add the define to make a missing window manager fail instead of skip:
+
+```bash
+xvfb-run -a bash -c 'openbox & sleep 2; flutter test integration_test -d linux --dart-define=XUE_HUA_REQUIRE_WINDOW_MANAGER=true'
+```
+
+**Deliberately not exercised.** `startDragging()` and `startResizing()` start an OS move or resize that follows a held pointer button. Without one, a window manager can stop honoring resizes and Windows blocks in a modal loop. Every integration test runs on a platform wrapper that records these two calls and never forwards them, so tests can still assert which gesture made which call. `destroy()`, and `close()` with `preventClose` off, would end the process that runs the tests; `close()` is only called after checking that `preventClose` is on. Windows 11 Snap Layout hover and click need a real pointer.
+
+### macOS native warnings
+
+`tool/check_macos_native_warnings.sh` builds from scratch and fails on any compiler, linker, asset catalog, SwiftPM, CocoaPods, or `xcodebuild` warning:
+
+- `example`: debug and release builds of the example app, plus the `RunnerTests` XCTest target.
+- `plugin`: the plugin's Swift package as the root package. SwiftPM hides warnings from package dependencies, and in the example app the plugin is one, so this is where its own diagnostics show.
+- `podspec` and `pods`: the podspec, and a scratch app that uses the plugin through CocoaPods.
+- `self-test`: injects a warning into a copy of the plugin and requires the gate to report it.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the Dart checks, this gate, the XCTest unit tests, and the integration tests on macOS, Windows, and Linux for every pull request.
+
+---
+
 ## Author & License
 
 - **Author**: Matkurban (`3496354336@qq.com`)

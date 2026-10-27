@@ -587,6 +587,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                             showWhenReady: true,
                           ),
                         );
+                    if (!mounted) return;
                     setState(() {
                       _selectedBackgroundColor = bg;
                       _titleBarStyle = TitleBarStyle.hidden;
@@ -618,6 +619,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                             showWhenReady: true,
                           ),
                         );
+                    if (!mounted) return;
                     setState(() {
                       _selectedBackgroundColor = bg;
                       _titleBarStyle = TitleBarStyle.immersive;
@@ -644,6 +646,7 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                             showWhenReady: true,
                           ),
                         );
+                    if (!mounted) return;
                     setState(() {
                       _titleBarStyle = TitleBarStyle.normal;
                       _currentBounds = snap.bounds;
