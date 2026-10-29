@@ -1,0 +1,565 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Matkurban/fpack/main/schema/fpack.schema.json
+# fpack 配置文件 – https://matkurban.github.io/fpack/configuration?lang=zh
+# 优先级：命令行参数 > FPACK_* 环境变量 > 本文件 > 默认值。
+# 所有键都是可选的：需要哪个就取消注释。${VAR} / ${VAR:-默认值} 会在加载时读取环境变量。
+# 相对路径均相对于项目根目录。fpack 只读取项目文件，绝不修改。
+
+# ----------------------------------------------------------------------------
+# 应用信息：用于安装程序、软件包元数据。
+app:
+  # 产物文件名前缀（output.name 中的 {app}）。
+  # 默认：pubspec 的 name；检测到；示例：xue_hua_im
+  # name: xue_hua_navite_window_manager
+  # 给人看的应用名：安装程序标题、开始菜单、.desktop 的 Name=。
+  # 默认：macOS 的 PRODUCT_NAME，否则为 pubspec 的 name；示例：雪花IM
+  display_name: xue_hua_navite_window_manager
+  # 简短描述：deb 的 Description、rpm 的 Summary、.desktop 的 Comment=、msix 描述。
+  # 默认：pubspec 的 description；检测到；示例：快速、安全的即时通讯应用
+  # description: "Flutter desktop window manager for macOS, Windows, and Linux with zero-flash startup, atomic configuration, frameless windows, native title bars, and launch at startup."
+  # 公司 / 作者：Windows 安装程序发布者、msix 发布者显示名、deb Maintainer 的后备值、rpm Vendor。
+  # 默认：windows/runner/Runner.rc 中的 CompanyName
+  # publisher: XueHua Tech
+  # 反向域名格式的应用 ID：Inno Setup AppId 的种子、msix identity name、pkg identifier 的后备值。
+  # 默认：Linux APPLICATION_ID、Android applicationId 或 iOS bundle id；检测到；示例：com.xuehua.im
+  # identifier: com.example.xue_hua_navite_window_manager
+  # 官网：Inno Setup 发布者网址、deb 的 Homepage、rpm 的 URL。
+  # homepage: https://xuehua.example.com
+  # 技术支持链接（Windows“应用和功能”中显示）。
+  # 默认：app.homepage
+  # support_url: https://xuehua.example.com/support
+  # deb Maintainer 与 rpm Packager 字段，格式 “名字 <邮箱>”。
+  # 默认：app.publisher
+  # maintainer: XueHua Team <dev@xuehua.example.com>
+  # 版权信息：Inno Setup 的 AppCopyright 与版本信息、deb 的 copyright 文件。
+  # 默认：© <年份> <发布者>
+  # copyright: © 2026 XueHua Tech
+  # 许可证（SPDX 标识）：rpm 的 License、deb 的 copyright 文件。
+  # 默认：Proprietary
+  # license: MIT
+
+# ----------------------------------------------------------------------------
+# Flutter SDK 选择。
+flutter:
+  # 使用的 Flutter SDK 根目录。
+  # 默认：FLUTTER_ROOT、fvm、PATH 中的 flutter；env FPACK_FLUTTER；参数 --flutter
+  # sdk: ~/fvm/versions/stable
+
+# ----------------------------------------------------------------------------
+# 所有 flutter build 共用的选项。
+build:
+  # 执行 `fpack build` 且不带目标时构建的目标。命令行接受的别名（如 `bundle`、`ios`、`setup`）这里同样可用。
+  # 示例：[apk, aab, ipa, dmg]
+  targets: [dmg, exe, deb]
+  # 构建模式。
+  # 可选值：release | profile | debug；默认：release；env FPACK_MODE；参数 --mode
+  # mode: release
+  # flavor / Xcode scheme（--flavor）；文件名中的 {flavor}。
+  # env FPACK_FLAVOR；参数 --flavor
+  # flavor: prod
+  # 入口文件（flutter -t）。
+  # 默认：lib/main.dart；env FPACK_ENTRY；参数 -t, --target
+  # target: lib/main_prod.dart
+  # --dart-define 值（map 或 KEY=VALUE 列表）。
+  # 参数 --dart-define
+  # dart_define: {API_URL: https://api.example.com}
+  # --dart-define-from-file 文件（.json 或 .env）。
+  # 参数 --dart-define-from-file
+  # dart_define_from_file: [config/prod.json]
+  # 版本名（{version}）。
+  # 默认：pubspec 版本号 + 之前的部分；检测到；示例：1.2.0；env FPACK_BUILD_NAME；参数 --build-name
+  # build_name: "1.1.0"
+  # 构建号（{build}）。
+  # 默认：pubspec 版本号 + 之后的部分；检测到；示例：42；env FPACK_BUILD_NUMBER；参数 --build-number
+  # build_number: "1"
+  # 混淆 Dart 代码；符号文件保存到 split_debug_info（默认 <输出目录>/debug-info/<平台>）。
+  # 默认：false；env FPACK_OBFUSCATE；参数 --obfuscate
+  # obfuscate: true
+  # Dart 调试符号目录（--split-debug-info）。
+  # 默认：混淆时为 <输出目录>/debug-info/<平台>；参数 --split-debug-info
+  # split_debug_info: build/symbols
+  # false 时传 --no-tree-shake-icons（保留全部图标字体字形）。
+  # 默认：true
+  # tree_shake_icons: false
+  # 追加到每个 flutter build 的参数（命令行 -- 之后的参数同理）。
+  # extra_args: [--no-pub]
+
+# ----------------------------------------------------------------------------
+# 产物输出目录与命名。
+output:
+  # 产物目录（相对于项目）。占位符：{app} {version} {build} {flavor} {mode}。
+  # 默认：dist/{version}{+build}；env FPACK_OUTPUT_DIR；参数 -o, --output
+  # dir: "dist/{version}{+build}"
+  # 文件名模板（不含扩展名）。占位符：{app} {version} {build} {platform} {arch} {variant} {mode} {flavor} {target} {date}；{-x}/{+x} 表示 x 非空时才加分隔符。
+  # 默认：{app}{-flavor}-{version}{+build}-{platform}{-arch}{-variant}{-mode}
+  # name: "{app}-{version}-{platform}{-arch}"
+  # 按目标单独设置文件名模板（目标 → 模板），优先于 output.name。
+  # names: {exe: "{app}-setup-{version}", web: "{app}-web"}
+  # 已存在同名产物时覆盖，而不是停止。
+  # 默认：false；env FPACK_OVERWRITE；参数 -f, --force
+  # overwrite: true
+  # 在产物旁写入校验和文件。
+  # 默认：true
+  # checksums: false
+  # 校验算法（文件名 SHA256SUMS 或 SHA512SUMS）。
+  # 可选值：sha256 | sha512；默认：sha256
+  # checksum_algorithm: sha512
+
+# ----------------------------------------------------------------------------
+# 构建前后执行的 shell 命令（工作目录：项目根目录）。
+hooks:
+  # 第一次 flutter build 之前执行一次；失败则停止构建。
+  # pre_build: [dart run build_runner build --delete-conflicting-outputs]
+  # 全部目标完成后执行一次（构建失败后也会执行，但所有目标都未通过构建前检查时跳过）；FPACK_ARTIFACTS 为产物列表（每行一个），FPACK_SUCCESS 为 1/0。
+  # post_build: [./scripts/upload.sh]
+  # 按目标（目标 → 命令）在打包步骤之前执行；提供 FPACK_TARGET。
+  # pre_package: {apk: [./scripts/check_size.sh]}
+  # 按目标在产物生成后执行；提供 FPACK_ARTIFACT（第一个产物）和 FPACK_ARTIFACTS。
+  # post_package: {dmg: [./scripts/upload_dmg.sh "$FPACK_ARTIFACT"]}
+
+# ----------------------------------------------------------------------------
+# macOS：macos（.app zip）、dmg、pkg。
+macos:
+  # 签名后启动 App，检查 smoke_test_seconds 秒后仍在运行，然后退出（可发现未授权 entitlements 等启动失败）。
+  # 默认：false；env FPACK_MACOS_SMOKE_TEST；参数 --smoke-test
+  # smoke_test: true
+  # 启动测试的等待秒数（1-300）。
+  # 默认：5
+  # smoke_test_seconds: 10
+  # 追加到 flutter build macos 的参数。
+  # extra_args: [--no-tree-shake-icons]
+
+  # Developer ID 签名与公证（只来自本文件、FPACK_MACOS_* 和命令行参数）。
+  sign:
+    # 用 Developer ID 重新签名 .app（并签名 DMG）。为 true 但未设置 identity 时自动选用第一个 “Developer ID Application” 证书。false（--no-sign）同时关闭 pkg 签名与公证。
+    # 默认：设置了 identity 时为 true；env FPACK_MACOS_SIGN；参数 --sign / --no-sign
+    # enabled: true
+    # App 的 codesign 证书；设置后即启用签名。
+    # 检测到；示例："Developer ID Application: Your Name (TEAMID)"；env FPACK_MACOS_SIGN_IDENTITY；参数 --sign-identity
+    #   本机钥匙串中的 Developer ID 证书：
+    #   Developer ID Application: MaiTiKuErBan AiShan (23HHWA2J37)
+    # identity: "Developer ID Application: MaiTiKuErBan AiShan (23HHWA2J37)"
+    # 重新签名 App 时使用的 entitlements。
+    # 默认：macos/Runner/Release.entitlements
+    # entitlements: macos/Runner/Release.entitlements
+    # 使用 Hardened Runtime 签名（公证必需）。
+    # 默认：true
+    # hardened_runtime: true
+    # 公证并装订 zip、DMG 与已签名的 pkg（会上传到 Apple）。
+    # 默认：设置了公证凭证时为 true；env FPACK_MACOS_NOTARIZE；参数 --notarize / --no-notarize
+    # notarize: true
+    # `xcrun notarytool store-credentials <名字>` 创建的钥匙串配置名（本地推荐）。
+    # env FPACK_MACOS_NOTARY_PROFILE；参数 --notary-profile
+    # notary_profile: NotaryProfile
+    # 公证用 Apple ID（配合 notary_team_id + notary_password），替代钥匙串配置。
+    # env FPACK_NOTARY_APPLE_ID
+    # notary_apple_id: dev@example.com
+    # Apple ID 公证时的团队 ID。
+    # env FPACK_NOTARY_TEAM_ID
+    # notary_team_id: ABCDE12345
+    # Apple ID 公证用的 App 专用密码。
+    # env FPACK_NOTARY_PASSWORD；请放在环境变量中
+    # notary_password: ${NOTARY_PASSWORD}
+    # 公证用 App Store Connect API 密钥（.p8，适合 CI）。
+    # env FPACK_NOTARY_API_KEY
+    # notary_api_key: ~/keys/AuthKey_ABC123.p8
+    # API 密钥 ID。
+    # env FPACK_NOTARY_API_KEY_ID
+    # notary_api_key_id: ABC123DEF4
+    # API Issuer UUID（个人密钥可省略）。
+    # env FPACK_NOTARY_API_ISSUER
+    # notary_api_issuer: 69a6de7e-…
+    # 签名 .pkg 的证书，与 App 的 “Developer ID Application” 不同。不设置则 pkg 不签名。
+    # 检测到；示例："Developer ID Installer: Your Name (TEAMID)"；env FPACK_MACOS_INSTALLER_IDENTITY；参数 --installer-identity
+    #   本机钥匙串中的安装包证书：
+    #   Developer ID Installer: MaiTiKuErBan AiShan (23HHWA2J37)
+    # installer_identity: "Developer ID Installer: MaiTiKuErBan AiShan (23HHWA2J37)"
+    # Developer ID 描述文件，签名前复制为 Contents/embedded.provisionprofile。entitlements 使用受限键（aps-environment、iCloud、associated domains、keychain access groups 等）时必需。
+    # 默认：保留 Xcode 嵌入的描述文件；env FPACK_MACOS_PROVISIONING_PROFILE；参数 --provisioning-profile
+    # provisioning_profile: macos/XueHua.provisionprofile
+    # 内嵌 bundle（App 扩展、登录项）的描述文件：bundle id → .provisionprofile 路径。
+    # provisioning_profiles: {com.xuehua.im.share: macos/XueHuaShare.provisionprofile}
+    # 签名前检查描述文件与受限 entitlements（Developer ID 类型、团队、App ID、有效期、已授权的 entitlements），并拒绝开发描述文件。false 跳过检查。
+    # 默认：true；env FPACK_MACOS_PROFILE_CHECK
+    # profile_check: false
+
+  # 如何等待 Apple 公证服务。每次提交都会记录到 <输出目录>/NOTARIZATION.md 和 notarization.json，其中有可直接复制的查询命令。
+  notarize:
+    # true：一直等待 Apple 返回结果（显示已等待时间；按 Ctrl-C 只是停止等待，Apple 端会继续处理）。false：提交后写入 NOTARIZATION.md / notarization.json 并结束，状态为 “submitted”；之后运行 `fpack notarize finish` 装订。
+    # 默认：true；env FPACK_NOTARIZE_WAIT；参数 --notarize-no-wait
+    # wait: false
+
+  # DMG 磁盘镜像。窗口/图标布局需要 create-dmg（brew install create-dmg）。
+  dmg:
+    # auto：装了 create-dmg（或设置了布局键）时用 create-dmg，否则用 hdiutil。
+    # 可选值：auto | hdiutil | create-dmg；默认：auto；env FPACK_DMG_TOOL；参数 --dmg-tool
+    # tool: create-dmg
+    # 挂载 DMG 后显示的卷名。
+    # 默认：.app 名称；检测到；示例：雪花IM
+    # volume_name: xue_hua_navite_window_manager
+    # 卷图标（.icns）。需要 create-dmg。
+    # volume_icon: macos/dmg/volume.icns
+    # 窗口背景图。需要 create-dmg。
+    # background: macos/dmg/background.png
+    # 窗口位置 [x, y]。需要 create-dmg。
+    # 默认：[200, 120]
+    # window_position: [200, 120]
+    # 窗口大小 [宽, 高]。需要 create-dmg。
+    # 默认：[660, 400]
+    # window_size: [660, 400]
+    # 窗口中的图标大小。需要 create-dmg。
+    # 默认：128
+    # icon_size: 128
+    # App 图标位置 [x, y]。需要 create-dmg。
+    # 默认：[180, 190]
+    # app_position: [180, 190]
+    # “应用程序”快捷方式位置 [x, y]。需要 create-dmg。
+    # 默认：[480, 190]
+    # applications_position: [480, 190]
+    # 镜像格式：UDZO（zlib）、UDBZ（bzip2）、ULFO（lzfse，macOS 10.11+）、ULMO（lzma，10.15+）、UDRO（只读不压缩）。
+    # 可选值：UDZO | UDBZ | ULFO | ULMO | UDRO；默认：UDZO
+    # format: ULFO
+    # 镜像文件系统。
+    # 可选值：HFS+ | APFS；默认：HFS+
+    # filesystem: APFS
+    # 打开 DMG 时显示的许可协议（.txt/.rtf）。需要 create-dmg。
+    # license: LICENSE.txt
+
+  # 安装包（pkgbuild + productbuild）。
+  pkg:
+    # 安装包标识（pkgutil --pkgs 中显示）。
+    # 默认：macOS 工程的 bundle id；检测到；示例：com.xuehua.im
+    # identifier: com.example.xue_hua_navite_window_manager
+    # 安装包版本。
+    # 默认：版本名
+    # version: 1.2.0
+    # App 安装到的绝对路径目录。
+    # 默认：/Applications
+    # install_location: /Applications
+    # 安装器窗口标题。
+    # 默认：.app 名称；检测到；示例：雪花IM
+    # title: xue_hua_navite_window_manager
+    # 欢迎页（.html/.rtf/.txt）。
+    # welcome: macos/installer/welcome.html
+    # “请先阅读”页（.html/.rtf/.txt）。
+    # readme: macos/installer/readme.html
+    # 用户必须同意的许可页（.html/.rtf/.txt）。
+    # license: macos/installer/license.rtf
+    # 完成页（.html/.rtf/.txt）。
+    # conclusion: macos/installer/done.html
+    # 背景图（浅色/深色模式都使用）。
+    # background: macos/installer/background.png
+    # 最低 macOS 版本；低于此版本时安装器会拒绝安装。
+    # 默认：工程的 MACOSX_DEPLOYMENT_TARGET
+    # min_os: 10.15
+    # 安装前执行的脚本（自动设为可执行）。
+    # preinstall: macos/installer/preinstall.sh
+    # 安装后执行的脚本。
+    # postinstall: macos/installer/postinstall.sh
+    # true：App 被移动过时在原位置升级；false：总是安装到 install_location。
+    # 默认：false
+    # relocatable: true
+    # 安装完成后要求重启。
+    # 默认：false
+    # require_restart: true
+
+# ----------------------------------------------------------------------------
+# Windows：windows（zip）、exe（Inno Setup）、msix。
+windows:
+  # 追加到 flutter build windows 的参数。
+  # extra_args: [--no-tree-shake-icons]
+
+  # Inno Setup 安装程序（.exe）。
+  inno_setup:
+    # AppId：请永远保持不变，升级时才能覆盖旧版本。
+    # 默认：由 app.identifier 推导的固定 GUID；检测到；示例：8D3B5E6A-1C2D-4E5F-8A9B-0C1D2E3F4A5B
+    # app_id: B972B61B-FE00-520E-BC17-E0198117DF15
+    # 自定义 .iss 脚本；fpack 会传入 /DAppName /DAppVersion /DAppPublisher /DAppExeName /DSourceDir /DAppId /DAppURL。
+    # script: windows/installer.iss
+    # ISCC.exe 路径。
+    # 默认：PATH 或 Program Files 中的 ISCC
+    # iscc: C:/Program Files (x86)/Inno Setup 6/ISCC.exe
+    # AppPublisher（发布者）。
+    # 默认：app.publisher
+    # publisher: XueHua Tech
+    # AppPublisherURL（发布者网址）。
+    # 默认：app.homepage
+    # publisher_url: https://xuehua.example.com
+    # AppSupportURL（支持网址）。
+    # 默认：app.support_url
+    # support_url: https://xuehua.example.com/support
+    # AppUpdatesURL（更新网址）。
+    # updates_url: https://xuehua.example.com/download
+    # 默认安装目录（可用 Inno 常量）。
+    # 默认：{autopf}\<显示名>
+    # default_dir: '{autopf}\XueHua'
+    # 开始菜单文件夹。
+    # 默认：显示名；检测到；示例：XueHua
+    # group_name: xue_hua_navite_window_manager
+    # 桌面快捷方式：none 不提供，unchecked 提供但默认不勾选，checked 默认勾选。
+    # 可选值：none | unchecked | checked；默认：unchecked
+    # desktop_icon: checked
+    # 最后一页提供“运行 <应用>”选项。
+    # 默认：true
+    # run_after_install: false
+    # 许可协议页（.txt/.rtf）。
+    # license_file: LICENSE.txt
+    # 安装前信息页（.txt/.rtf）。
+    # info_before: docs/before.txt
+    # 安装后信息页（.txt/.rtf）。
+    # info_after: docs/after.txt
+    # 安装程序图标（.ico）。
+    # 默认：windows/runner/resources/app_icon.ico
+    # setup_icon: windows/installer/setup.ico
+    # 向导大图（.bmp/.png，100% 缩放下 164×314）。
+    # wizard_image: windows/installer/wizard.bmp
+    # 向导小图（.bmp/.png，55×55）。
+    # wizard_small_image: windows/installer/wizard-small.bmp
+    # 向导样式。
+    # 可选值：modern | classic；默认：modern
+    # wizard_style: classic
+    # 安装程序语言；第一个为默认，多个时让用户选择。zh-CN/zh-TW 需要 Inno Setup 6.5+（旧版本时 fpack 自带语言文件）。支持：en zh-CN zh-TW ja ko de fr es it pt-BR pt ru uk tr pl nl cs ar he。
+    # 默认：[en]
+    # languages: [zh-CN, en]
+    # user：仅当前用户（无需管理员）；admin：所有用户（需要 UAC）；ask：让用户选择。
+    # 可选值：user | admin | ask；默认：ask
+    # privileges: admin
+    # 压缩方式（lzma2/max、lzma2/ultra64、zip、none 等）。
+    # 默认：lzma2/max
+    # compression: lzma2/ultra64
+    # 最低 Windows 版本（MinVersion）。
+    # 默认：10.0
+    # min_version: 10.0.17763
+
+  # 可选的 Authenticode 签名（signtool）：应用的 .exe/.dll（在压缩和打包之前）、安装程序和 MSIX。选择一种证书来源：.pfx 文件、证书存储（指纹或主题名称）或 signtool 插件（dlib，如 Azure Trusted Signing）。
+  sign:
+    # 代码签名证书（.pfx）。设置它（或 thumbprint）后会签名应用 .exe、安装程序和 MSIX。
+    # env FPACK_WINDOWS_CERTIFICATE
+    # certificate: C:/certs/codesign.pfx
+    # 证书密码。
+    # env FPACK_WINDOWS_CERTIFICATE_PASSWORD；请放在环境变量中
+    # password: ${WINDOWS_CERT_PASSWORD}
+    # Windows 证书存储中证书的 SHA-1 指纹（/sha1），替代 .pfx。
+    # env FPACK_WINDOWS_CERT_THUMBPRINT
+    # thumbprint: 1A2B3C…
+    # 证书存储中证书的主题名称（/n），替代指纹。
+    # env FPACK_WINDOWS_CERT_SUBJECT
+    # subject: XueHua Tech
+    # thumbprint/subject 使用的证书存储名称（/s）。
+    # 默认：My
+    # store: My
+    # 使用本地计算机存储（/sm），而不是当前用户的存储。
+    # 默认：false（当前用户）
+    # machine_store: true
+    # 用于云签名的 signtool 插件（/dlib），如 Azure Trusted Signing；需同时设置 dlib_metadata。
+    # env FPACK_WINDOWS_SIGN_DLIB
+    # dlib: C:/tools/Azure.CodeSigning.Dlib.dll
+    # dlib 的元数据文件（/dmdf），如 Trusted Signing 的账户和证书配置。
+    # env FPACK_WINDOWS_SIGN_DLIB_METADATA
+    # dlib_metadata: signing/metadata.json
+    # RFC 3161 时间戳服务器（/tr，SHA-256）。
+    # 默认：http://timestamp.digicert.com
+    # timestamp_url: http://timestamp.sectigo.com
+    # signtool.exe 路径。
+    # 默认：PATH 或最新 Windows SDK 中的 signtool
+    # signtool: C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/signtool.exe
+    # UAC 弹窗中显示的描述（/d）。
+    # 默认：app.display_name
+    # description: XueHua IM
+    # 签名中记录的详细信息网址（/du）。
+    # url: https://xuehua.example.com
+    # 打包前要签名的 Flutter Release 文件夹中的文件（不含 / 的模式匹配所有子文件夹）。
+    # 默认：["*.exe", "*.dll"]
+    # files: ["*.exe", "plugins/*.dll"]
+    # 用 signtool verify /pa 校验签名；失败（例如不受信任的测试证书）只作为警告。
+    # 默认：true
+    # verify: false
+
+  # MSIX 包（需要 msix 开发依赖）。这些键会覆盖 pubspec 中的 msix_config。
+  msix:
+    # 显示名称。
+    # 默认：app.display_name；检测到；示例：雪花IM
+    # display_name: xue_hua_navite_window_manager
+    # 发布者显示名称。
+    # 默认：app.publisher
+    # publisher_display_name: XueHua Tech
+    # 包标识名称（Identity Name）。
+    # 默认：app.identifier；检测到；示例：com.xuehua.im
+    # identity_name: com.example.xue_hua_navite_window_manager
+    # 发布者（证书 Subject）；上架 Store 时必填。
+    # 默认：取自证书
+    # publisher: CN=XueHua Tech, O=XueHua Tech, C=CN
+    # MSIX 版本（a.b.c.d）。
+    # 默认：版本名补齐为 a.b.c.0
+    # version: 1.2.0.0
+    # Logo 图片（≥ 400×400 的 PNG）。
+    # 默认：msix 默认 / 应用图标
+    # logo: windows/msix/logo.png
+    # 包描述。msix 包只从 pubspec.yaml 读取它，所以当这里的值不同时 fpack 会提示需要添加的 msix_config 条目。
+    # 默认：msix_config.description，否则为 pubspec 的 description
+    # description: 快速、安全的即时通讯应用
+    # 能力声明（capabilities）。
+    # capabilities: [internetClient, microphone, webcam]
+    # 语言。
+    # languages: [zh-cn, en-us]
+    # 应用可打开的文件扩展名。
+    # file_extensions: [.xhim]
+    # 可激活应用的 URL 协议。
+    # protocol_activation: [xuehua]
+    # 命令行别名。
+    # execution_alias: xuehua
+    # 登录时自动启动。
+    # 默认：false
+    # start_at_login: true
+    # 最低 Windows 版本。
+    # 默认：10.0.17763.0
+    # os_min_version: 10.0.19041.0
+    # 为 Microsoft Store 构建（不签名，由 Store 签名）。
+    # 默认：false
+    # store: true
+    # 是否签名 MSIX（false 时必须设置 publisher）。
+    # 默认：true
+    # sign: false
+    # 签名 MSIX 用的证书（.pfx）。
+    # 默认：windows.sign.certificate，否则使用 msix 测试证书
+    # certificate: C:/certs/codesign.pfx
+    # 证书密码。
+    # 默认：windows.sign.password；请放在环境变量中
+    # certificate_password: ${WINDOWS_CERT_PASSWORD}
+    # 追加到 dart run msix:create 的参数。
+    # extra_args: [--trim-logo, "false"]
+
+# ----------------------------------------------------------------------------
+# Linux：linux（tar.gz）、deb、rpm、appimage、snap。
+linux:
+  # deb/rpm 包名，以及 /usr/bin 中的命令名。
+  # 默认：应用名转小写并用 - 连接；检测到；示例：xuehua-im
+  # package_name: xue-hua-navite-window-manager
+  # 应用文件的安装目录。
+  # 默认：/opt/<package_name>
+  # prefix: /usr/lib/xuehua-im
+  # 菜单与 AppImage 使用的 PNG 图标。
+  # 默认：flutter_launcher_icons 的图片，否则 web/icons/Icon-512.png
+  # icon: assets/icon/icon.png
+  # 安装到 hicolor 主题的图标尺寸（由 linux.icon 缩放，不放大）。
+  # 默认：[16, 32, 48, 64, 128, 256, 512]
+  # icon_sizes: [48, 128, 256]
+  # freedesktop.org 菜单分类（.desktop 的 Categories=）。
+  # 默认：[Utility]
+  # categories: [Network, InstantMessaging]
+  # .desktop 的 GenericName=。
+  # generic_name: Instant Messenger
+  # .desktop 的 Keywords=（搜索关键词）。
+  # keywords: [chat, im, message]
+  # .desktop 的 MimeType=（可打开的文件类型 / URL 协议）。
+  # mime_types: [x-scheme-handler/xuehua]
+  # .desktop 的 StartupWMClass=（让窗口与启动器图标归为一组）。
+  # 默认：可执行文件名
+  # startup_wm_class: xue_hua_im
+  # AppStream metainfo，安装到 /usr/share/metainfo（软件中心展示）。
+  # metainfo: linux/packaging/com.xuehua.im.metainfo.xml
+  # appimagetool 路径。
+  # 默认：PATH 中的 appimagetool
+  # appimagetool: ~/.local/bin/appimagetool
+  # 追加到 flutter build linux 的参数。
+  # extra_args: [--no-tree-shake-icons]
+
+  # Debian/Ubuntu 软件包。
+  deb:
+    # Depends（依赖）。
+    # 默认：[libgtk-3-0 | libgtk-3-0t64]
+    # depends: [libgtk-3-0, libsecret-1-0]
+    # Recommends（推荐）。
+    # recommends: [gnome-keyring]
+    # Suggests（建议）。
+    # suggests: [libnotify-bin]
+    # Conflicts（冲突）。
+    # conflicts: [xuehua-im-beta]
+    # Section（分区）。
+    # 默认：utils
+    # section: net
+    # Priority（优先级）。
+    # 可选值：required | important | standard | optional | extra；默认：optional
+    # priority: optional
+    # 解包前执行的维护脚本。
+    # preinst: linux/packaging/preinst
+    # 安装后执行的维护脚本。
+    # postinst: linux/packaging/postinst
+    # 卸载前执行的维护脚本。
+    # prerm: linux/packaging/prerm
+    # 卸载后执行的维护脚本。
+    # postrm: linux/packaging/postrm
+
+  # Fedora/RHEL/openSUSE 软件包。
+  rpm:
+    # Requires（依赖）。
+    # 默认：[gtk3]
+    # requires: [gtk3, libsecret]
+    # Group（分组）。
+    # 默认：Applications/Internet
+    # group: Applications/Communications
+    # License（许可证）。
+    # 默认：app.license
+    # license: MIT
+    # %pre 脚本。
+    # pre: linux/packaging/pre.sh
+    # %post 脚本。
+    # post: linux/packaging/post.sh
+    # %preun 脚本。
+    # preun: linux/packaging/preun.sh
+    # %postun 脚本。
+    # postun: linux/packaging/postun.sh
+
+  # AppImage。
+  appimage:
+    # 内嵌更新信息（供 AppImageUpdate 使用）。
+    # update_information: gh-releases-zsync|xuehua|im|latest|*x86_64.AppImage.zsync
+    # 追加到 appimagetool 的参数。
+    # extra_args: [--comp, zstd]
+
+  # Snap 包（snapcraft）。fpack 围绕已构建好的 bundle 生成 snapcraft.yaml（dump 插件），snapcraft 内不会再次构建 Flutter。
+  snap:
+    # Snap 名称（小写字母、数字和 -，最多 40 个字符），也是命令名。
+    # 默认：linux.package_name
+    # name: xuehua-im
+    # 一行简介，最多 78 个字符。
+    # 默认：app.description（截断到 78 个字符）
+    # summary: 快速、安全的即时通讯
+    # 在 Snap Store 中显示的详细描述。
+    # 默认：app.description
+    # description: 雪花 IM 保护你的聊天隐私。
+    # 基础 snap（运行时）。core24 即 Ubuntu 24.04。
+    # 可选值：core24 | core22；默认：core24
+    # base: core24
+    # stable 可发布到 stable/candidate 通道；devel 只能发布到 beta/edge。
+    # 可选值：stable | devel；默认：stable（devmode 时为 devel）
+    # grade: stable
+    # strict（沙箱，通过 plugs 访问系统）、classic（无沙箱，上架需审批）或 devmode（仅用于测试）。
+    # 可选值：strict | classic | devmode；默认：strict
+    # confinement: strict
+    # SPDX 许可证表达式。
+    # 默认：app.license
+    # license: MIT
+    # 应用连接的接口；[] 表示不需要。
+    # 默认：[desktop, desktop-legacy, wayland, x11, opengl, audio-playback, network, home]（classic 时无）
+    # plugs: [network, home, removable-media]
+    # Snapcraft 扩展：gnome 提供 GTK 3、字体、主题与桌面启动器。
+    # 默认：[gnome]（classic 时无）
+    # extensions: [gnome]
+    # 额外打包进 snap 的 Ubuntu 软件包（插件需要的库）。
+    # stage_packages: [libsecret-1-0]
+    # 额外命令：应用名 → bundle 中的可执行文件。使用相同的 plugs 和扩展。
+    # apps: {helper: helper-tool}
+    # 自己的 .desktop 文件（Icon=${SNAP}/meta/gui/<name>.png）。
+    # 默认：根据 app 与 linux 键生成
+    # desktop: linux/packaging/xuehua-im.desktop
+    # 自己的 snapcraft.yaml。fpack 替换 {name} {version} {summary} {description} {base} {grade} {confinement} {license} {command}，并把 bundle 放在 bundle/、图标与 .desktop 放在 snap/gui/。
+    # 默认：自动生成
+    # template: snap/snapcraft.yaml
+    # snapcraft 的构建方式：destructive（用 sudo 在本机构建，最快，适合 CI）、lxd 或 multipass（隔离的构建环境）。
+    # 可选值：auto | destructive | lxd | multipass；默认：auto：在匹配的 Ubuntu（core24 对应 24.04）上用 destructive，否则用 lxd；env FPACK_SNAP_BUILD_MODE
+    # build_mode: destructive
+    # 追加到 snapcraft pack 的参数。
+    # extra_args: [--verbosity, verbose]
+
+# 未列出（项目中没有对应平台目录）： android, ios, web
+# 这些键见 https://matkurban.github.io/fpack/configuration?lang=zh 或 `fpack schema`。

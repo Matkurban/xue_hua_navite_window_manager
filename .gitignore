@@ -38,3 +38,4 @@ example/**/build/
 
 # Local manual probe scripts (not part of the package)
 example/_manual_test/
+dist/
