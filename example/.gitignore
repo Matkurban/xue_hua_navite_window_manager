@@ -50,3 +50,4 @@ pubspec.lock
 
 # Local manual probe scripts
 _manual_test/
+dist/

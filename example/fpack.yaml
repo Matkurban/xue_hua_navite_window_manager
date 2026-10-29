@@ -9,19 +9,19 @@
 app:
   # 产物文件名前缀（output.name 中的 {app}）。
   # 默认：pubspec 的 name；检测到；示例：xue_hua_im
-  # name: xue_hua_navite_window_manager
+  # name: xue_hua_navite_window_manager_example
   # 给人看的应用名：安装程序标题、开始菜单、.desktop 的 Name=。
   # 默认：macOS 的 PRODUCT_NAME，否则为 pubspec 的 name；示例：雪花IM
-  display_name: xue_hua_navite_window_manager
+  display_name: xue_hua_navite_window_manager_example
   # 简短描述：deb 的 Description、rpm 的 Summary、.desktop 的 Comment=、msix 描述。
   # 默认：pubspec 的 description；检测到；示例：快速、安全的即时通讯应用
-  # description: "Flutter desktop window manager for macOS, Windows, and Linux with zero-flash startup, atomic configuration, frameless windows, native title bars, and launch at startup."
+  # description: Demonstrates how to use the xue_hua_navite_window_manager plugin.
   # 公司 / 作者：Windows 安装程序发布者、msix 发布者显示名、deb Maintainer 的后备值、rpm Vendor。
   # 默认：windows/runner/Runner.rc 中的 CompanyName
   # publisher: XueHua Tech
   # 反向域名格式的应用 ID：Inno Setup AppId 的种子、msix identity name、pkg identifier 的后备值。
   # 默认：Linux APPLICATION_ID、Android applicationId 或 iOS bundle id；检测到；示例：com.xuehua.im
-  # identifier: com.example.xue_hua_navite_window_manager
+  # identifier: com.kurban.xue_hua_navite_window_manager
   # 官网：Inno Setup 发布者网址、deb 的 Homepage、rpm 的 URL。
   # homepage: https://xuehua.example.com
   # 技术支持链接（Windows“应用和功能”中显示）。
@@ -67,7 +67,7 @@ build:
   # dart_define_from_file: [config/prod.json]
   # 版本名（{version}）。
   # 默认：pubspec 版本号 + 之前的部分；检测到；示例：1.2.0；env FPACK_BUILD_NAME；参数 --build-name
-  # build_name: "1.1.0"
+  # build_name: "1.0.0"
   # 构建号（{build}）。
   # 默认：pubspec 版本号 + 之后的部分；检测到；示例：42；env FPACK_BUILD_NUMBER；参数 --build-number
   # build_number: "1"
@@ -195,7 +195,7 @@ macos:
     # tool: create-dmg
     # 挂载 DMG 后显示的卷名。
     # 默认：.app 名称；检测到；示例：雪花IM
-    # volume_name: xue_hua_navite_window_manager
+    # volume_name: xue_hua_navite_window_manager_example
     # 卷图标（.icns）。需要 create-dmg。
     # volume_icon: macos/dmg/volume.icns
     # 窗口背景图。需要 create-dmg。
@@ -228,7 +228,7 @@ macos:
   pkg:
     # 安装包标识（pkgutil --pkgs 中显示）。
     # 默认：macOS 工程的 bundle id；检测到；示例：com.xuehua.im
-    # identifier: com.example.xue_hua_navite_window_manager
+    # identifier: com.kurban.xueHuaNaviteWindowManagerExample
     # 安装包版本。
     # 默认：版本名
     # version: 1.2.0
@@ -237,7 +237,7 @@ macos:
     # install_location: /Applications
     # 安装器窗口标题。
     # 默认：.app 名称；检测到；示例：雪花IM
-    # title: xue_hua_navite_window_manager
+    # title: xue_hua_navite_window_manager_example
     # 欢迎页（.html/.rtf/.txt）。
     # welcome: macos/installer/welcome.html
     # “请先阅读”页（.html/.rtf/.txt）。
@@ -249,8 +249,8 @@ macos:
     # 背景图（浅色/深色模式都使用）。
     # background: macos/installer/background.png
     # 最低 macOS 版本；低于此版本时安装器会拒绝安装。
-    # 默认：工程的 MACOSX_DEPLOYMENT_TARGET
-    # min_os: 10.15
+    # 默认：工程的 MACOSX_DEPLOYMENT_TARGET；检测到；示例：10.15
+    # min_os: "14.0"
     # 安装前执行的脚本（自动设为可执行）。
     # preinstall: macos/installer/preinstall.sh
     # 安装后执行的脚本。
@@ -272,7 +272,7 @@ windows:
   inno_setup:
     # AppId：请永远保持不变，升级时才能覆盖旧版本。
     # 默认：由 app.identifier 推导的固定 GUID；检测到；示例：8D3B5E6A-1C2D-4E5F-8A9B-0C1D2E3F4A5B
-    # app_id: B972B61B-FE00-520E-BC17-E0198117DF15
+    # app_id: BA1BC356-41B5-5B07-BA9E-35F137B19D65
     # 自定义 .iss 脚本；fpack 会传入 /DAppName /DAppVersion /DAppPublisher /DAppExeName /DSourceDir /DAppId /DAppURL。
     # script: windows/installer.iss
     # ISCC.exe 路径。
@@ -294,7 +294,7 @@ windows:
     # default_dir: '{autopf}\XueHua'
     # 开始菜单文件夹。
     # 默认：显示名；检测到；示例：XueHua
-    # group_name: xue_hua_navite_window_manager
+    # group_name: xue_hua_navite_window_manager_example
     # 桌面快捷方式：none 不提供，unchecked 提供但默认不勾选，checked 默认勾选。
     # 可选值：none | unchecked | checked；默认：unchecked
     # desktop_icon: checked
@@ -378,13 +378,13 @@ windows:
   msix:
     # 显示名称。
     # 默认：app.display_name；检测到；示例：雪花IM
-    # display_name: xue_hua_navite_window_manager
+    # display_name: xue_hua_navite_window_manager_example
     # 发布者显示名称。
     # 默认：app.publisher
     # publisher_display_name: XueHua Tech
     # 包标识名称（Identity Name）。
     # 默认：app.identifier；检测到；示例：com.xuehua.im
-    # identity_name: com.example.xue_hua_navite_window_manager
+    # identity_name: com.kurban.xue_hua_navite_window_manager
     # 发布者（证书 Subject）；上架 Store 时必填。
     # 默认：取自证书
     # publisher: CN=XueHua Tech, O=XueHua Tech, C=CN
@@ -433,7 +433,7 @@ windows:
 linux:
   # deb/rpm 包名，以及 /usr/bin 中的命令名。
   # 默认：应用名转小写并用 - 连接；检测到；示例：xuehua-im
-  # package_name: xue-hua-navite-window-manager
+  # package_name: xue-hua-navite-window-manager-example
   # 应用文件的安装目录。
   # 默认：/opt/<package_name>
   # prefix: /usr/lib/xuehua-im
@@ -453,8 +453,8 @@ linux:
   # .desktop 的 MimeType=（可打开的文件类型 / URL 协议）。
   # mime_types: [x-scheme-handler/xuehua]
   # .desktop 的 StartupWMClass=（让窗口与启动器图标归为一组）。
-  # 默认：可执行文件名
-  # startup_wm_class: xue_hua_im
+  # 默认：可执行文件名；检测到；示例：xue_hua_im
+  # startup_wm_class: xue_hua_navite_window_manager_example
   # AppStream metainfo，安装到 /usr/share/metainfo（软件中心展示）。
   # metainfo: linux/packaging/com.xuehua.im.metainfo.xml
   # appimagetool 路径。
