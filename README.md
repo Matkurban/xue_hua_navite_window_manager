@@ -2,7 +2,7 @@
 
 English | [简体中文](./README_ZH.md)
 
-[![Version](https://img.shields.io/badge/version-1.0.4-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
 [![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.47.0-02569B.svg)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-%5E3.13.0-0175C2.svg)](https://dart.dev)
 [![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-success.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
@@ -35,6 +35,7 @@ Designed from the ground up to solve the core architectural limitations of legac
 | Native Dragging (`startDragging` / `DragArea`) | ✅ | ✅ | ✅ X11, ✅ Wayland via `DragArea` |
 | 8-Direction Native Edge Resizing (`startResizing`) | ✅ | ✅ | ✅ X11, ✅ Wayland via `WindowResizeEdgeArea` |
 | Center on the active monitor | ✅ | ✅ | ✅ X11, best-effort Wayland (see below) |
+| Launch at Startup (Login Auto-Start) | ✅ (`SMAppService` / `LaunchAgents`) | ✅ (`Run` + `StartupApproved` / MSIX) | ✅ (XDG `~/.config/autostart`) |
 
 ---
 
@@ -62,7 +63,7 @@ Add `xue_hua_navite_window_manager` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  xue_hua_navite_window_manager: ^1.0.0
+  xue_hua_navite_window_manager: ^1.1.0
 ```
 
 ### AI Agent Skills Support
@@ -319,6 +320,42 @@ await XueHuaNaviteWindowManager.instance.setTrafficLightsOffset(const Offset(20,
 // Hide or show macOS traffic light buttons dynamically:
 await XueHuaNaviteWindowManager.instance.setTrafficLightsVisible(false);
 ```
+
+### 5. Launch at Startup (Auto-Start on User Login)
+
+Register or query user-login auto-start with zero boilerplate—or customize CLI arguments, identifiers, and macOS backend selection via `LaunchAtStartupConfig`:
+
+```dart
+final manager = XueHuaNaviteWindowManager.instance;
+
+// 1. Optional: set a default startup configuration once during app boot
+manager.configureLaunchAtStartup(
+  const LaunchAtStartupConfig(
+    appName: 'XueHua Desktop Studio',
+    arguments: <String>['--minimized'],
+  ),
+);
+
+// 2. Query detailed OS registration & user-approval status
+final LaunchAtStartupState state = await manager.getLaunchAtStartupState();
+debugPrint(
+  'Supported: ${state.isSupported}, enabled: ${state.isEnabled}, '
+  'status: ${state.status}, backend: ${state.backend}',
+);
+
+// 3. Enable or disable launch at startup
+final LaunchAtStartupState updated = await manager.setLaunchAtStartup(true);
+if (updated.status == LaunchAtStartupStatus.requiresApproval ||
+    updated.status == LaunchAtStartupStatus.disabledByUser) {
+  // Prompt the user and jump straight to OS Login Items / Startup Apps settings:
+  await manager.openLaunchAtStartupSettings();
+}
+```
+
+Platform backend details:
+- **macOS**: Defaults to `SMAppService.mainApp` on macOS 13+ (works inside App Sandbox & Mac App Store without extra entitlements). Outside App Sandbox, automatically switches to `~/Library/LaunchAgents/<identifier>.plist` when custom `arguments` are provided or on macOS 12 (`MacOSLaunchAtStartupMode.launchAgent`).
+- **Windows**: Unpackaged Win32 apps write quoted commands to `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` and inspect `Explorer\StartupApproved\Run` so entries disabled in Task Manager / Settings report `LaunchAtStartupStatus.disabledByUser` (and Group Policy blocks report `disabledByPolicy`). MSIX packages automatically manage their `StartupTask` `State` (`msixTaskId` optional).
+- **Linux**: Writes `$XDG_CONFIG_HOME/autostart/<identifier>.desktop`, honoring `Hidden=true` and `X-GNOME-Autostart-enabled=false` as `disabledByUser`, and preferring `$APPIMAGE` / `flatpak run <$FLATPAK_ID>` over `/proc/self/exe`.
 
 ---
 

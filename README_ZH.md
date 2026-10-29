@@ -2,7 +2,7 @@
 
 [English](./README.md) | 简体中文
 
-[![Version](https://img.shields.io/badge/version-1.0.4-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
 [![Flutter](https://img.shields.io/badge/Flutter-%3E%3D3.47.0-02569B.svg)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-%5E3.13.0-0175C2.svg)](https://dart.dev)
 [![Platforms](https://img.shields.io/badge/Platforms-macOS%20%7C%20Windows%20%7C%20Linux-success.svg)](https://github.com/Matkurban/xue_hua_navite_window_manager)
@@ -35,6 +35,7 @@
 | 原生高性能窗口拖拽 (`startDragging` / `DragArea`) | ✅ | ✅ | ✅ X11，✅ Wayland（`DragArea`） |
 | 原生八向边缘缩放 (`startResizing`) | ✅ | ✅ | ✅ X11，✅ Wayland（`WindowResizeEdgeArea`） |
 | 在当前显示器居中 | ✅ | ✅ | ✅ X11，Wayland 尽力而为（见下） |
+| 开机自启动（用户登录自启） | ✅ (`SMAppService` / `LaunchAgents`) | ✅ (`Run` + `StartupApproved` / MSIX) | ✅ (XDG `~/.config/autostart`) |
 
 ---
 
@@ -62,7 +63,7 @@ Wayland 上不要把按钮放进 `DragArea` 的子树：按下会按整块矩形
 
 ```yaml
 dependencies:
-  xue_hua_navite_window_manager: ^1.0.0
+  xue_hua_navite_window_manager: ^1.1.0
 ```
 
 ### AI Agent Skills 支持
@@ -319,6 +320,42 @@ await XueHuaNaviteWindowManager.instance.setTrafficLightsOffset(const Offset(20,
 // 动态隐藏或显示红绿灯按钮：
 await XueHuaNaviteWindowManager.instance.setTrafficLightsVisible(false);
 ```
+
+### 5. 开机自启动（用户登录自动启动）
+
+零样板代码即可注册与查询开机自启动状态，也可通过 `LaunchAtStartupConfig` 自定义启动参数、标识符与 macOS 后端策略：
+
+```dart
+final manager = XueHuaNaviteWindowManager.instance;
+
+// 1. 可选：在启动时统一设置默认自启动配置
+manager.configureLaunchAtStartup(
+  const LaunchAtStartupConfig(
+    appName: 'XueHua Desktop Studio',
+    arguments: <String>['--minimized'],
+  ),
+);
+
+// 2. 查询操作系统详细注册状态与用户授权状态
+final LaunchAtStartupState state = await manager.getLaunchAtStartupState();
+debugPrint(
+  '支持: ${state.isSupported}, 已启用: ${state.isEnabled}, '
+  '状态: ${state.status}, 后端: ${state.backend}',
+);
+
+// 3. 开启或关闭开机自启动
+final LaunchAtStartupState updated = await manager.setLaunchAtStartup(true);
+if (updated.status == LaunchAtStartupStatus.requiresApproval ||
+    updated.status == LaunchAtStartupStatus.disabledByUser) {
+  // 若被用户在系统设置中禁用或等待授权，可一键跳转系统“登录项 / 启动应用”设置页：
+  await manager.openLaunchAtStartupSettings();
+}
+```
+
+各平台原生实现细节：
+- **macOS**：在 macOS 13+ 默认使用 Apple 官方 `SMAppService.mainApp`（无需额外 Entitlement 即可兼容 App Sandbox 与 Mac App Store）。在非沙盒（Unsandboxed）环境下，当配置了自定义命令行 `arguments` 或运行于 macOS 12 时，自动切换至 `~/Library/LaunchAgents/<identifier>.plist`（也可显式指定 `MacOSLaunchAtStartupMode.launchAgent`）。
+- **Windows**：常规 Win32 应用读写 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`（自动按 `CommandLineToArgvW` 规则转义路径与参数），并联动解析 `Explorer\StartupApproved\Run`——用户在任务管理器或系统设置中手动关闭自启时会准确返回 `LaunchAtStartupStatus.disabledByUser`（组策略禁用返回 `disabledByPolicy`），而非误判为已启用；MSIX 打包应用自动识别并管理 `StartupTask` 状态（可选传入 `msixTaskId`）。
+- **Linux**：遵循 Freedesktop XDG Autostart 规范管理 `$XDG_CONFIG_HOME/autostart/<identifier>.desktop`，识别 `Hidden=true` 与 `X-GNOME-Autostart-enabled=false` 为 `disabledByUser`，并自动优先解析 `$APPIMAGE`（避免写入重启即失效的 `/tmp/.mount_*` 临时挂载路径）与 `$FLATPAK_ID`（`flatpak run <id>`）。
 
 ---
 

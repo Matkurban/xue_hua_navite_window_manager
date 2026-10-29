@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
+import 'src/launch_at_startup.dart';
 import 'src/window_config.dart';
 import 'src/window_enums.dart';
 import 'src/window_event.dart';
@@ -263,6 +264,33 @@ abstract class XueHuaNaviteWindowManagerPlatform extends PlatformInterface {
   }) {
     throw UnimplementedError(
       'setTitleBarDragRects() has not been implemented.',
+    );
+  }
+
+  /// Queries the operating system for the application's current
+  /// [LaunchAtStartupState].
+  Future<LaunchAtStartupState> getLaunchAtStartupState({
+    LaunchAtStartupConfig? config,
+  }) {
+    throw UnimplementedError(
+      'getLaunchAtStartupState() has not been implemented.',
+    );
+  }
+
+  /// Enables or disables launching the application automatically at user login,
+  /// returning the resulting [LaunchAtStartupState].
+  Future<LaunchAtStartupState> setLaunchAtStartup(
+    bool enabled, {
+    LaunchAtStartupConfig? config,
+  }) {
+    throw UnimplementedError('setLaunchAtStartup() has not been implemented.');
+  }
+
+  /// Opens the operating system's native Startup / Login Items settings page
+  /// when supported (`true` on macOS and Windows, `false` otherwise).
+  Future<bool> openLaunchAtStartupSettings() {
+    throw UnimplementedError(
+      'openLaunchAtStartupSettings() has not been implemented.',
     );
   }
 }

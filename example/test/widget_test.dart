@@ -16,6 +16,10 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.text('5. Launch at Startup (Login Auto-Start)'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('studio layout does not overflow at a minimize-sized window', (

@@ -54,6 +54,8 @@ target_include_directories(${PLUGIN_NAME} INTERFACE
 target_link_libraries(${PLUGIN_NAME} PRIVATE
   flutter
   flutter_wrapper_plugin
+  advapi32
+  shell32
   dwmapi
   comctl32
   uxtheme
@@ -91,6 +93,8 @@ target_compile_definitions(${TEST_RUNNER} PRIVATE UNICODE _UNICODE NOMINMAX)
 target_include_directories(${TEST_RUNNER} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(${TEST_RUNNER} PRIVATE
   flutter_wrapper_plugin
+  advapi32
+  shell32
   dwmapi
   comctl32
   uxtheme

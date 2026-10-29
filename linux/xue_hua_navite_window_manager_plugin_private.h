@@ -2,5 +2,17 @@
 
 #include "include/xue_hua_navite_window_manager/xue_hua_navite_window_manager_plugin.h"
 
-// Exposes internal helper for unit tests when no GtkWindow is attached.
+// Exposes internal helpers for unit tests when no GtkWindow is attached.
 FlMethodResponse* xue_hua_navite_window_manager_handle_ensure_initialized();
+
+FlMethodResponse*
+xue_hua_navite_window_manager_handle_get_launch_at_startup_state(
+    FlValue* args,
+    const gchar* autostart_dir_override);
+
+FlMethodResponse* xue_hua_navite_window_manager_handle_set_launch_at_startup(
+    FlValue* args,
+    const gchar* autostart_dir_override);
+
+FlMethodResponse*
+xue_hua_navite_window_manager_handle_open_launch_at_startup_settings();

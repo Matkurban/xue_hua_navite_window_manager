@@ -180,6 +180,34 @@ class MockXueHuaNaviteWindowManagerPlatform
 
   @override
   Future<void> unmaximize() async {}
+
+  @override
+  Future<LaunchAtStartupState> getLaunchAtStartupState({
+    LaunchAtStartupConfig? config,
+  }) async {
+    return const LaunchAtStartupState(
+      isSupported: true,
+      isEnabled: false,
+      status: LaunchAtStartupStatus.disabled,
+    );
+  }
+
+  @override
+  Future<LaunchAtStartupState> setLaunchAtStartup(
+    bool enabled, {
+    LaunchAtStartupConfig? config,
+  }) async {
+    return LaunchAtStartupState(
+      isSupported: true,
+      isEnabled: enabled,
+      status: enabled
+          ? LaunchAtStartupStatus.enabled
+          : LaunchAtStartupStatus.disabled,
+    );
+  }
+
+  @override
+  Future<bool> openLaunchAtStartupSettings() async => true;
 }
 
 class _TestWindowListener with WindowListener {

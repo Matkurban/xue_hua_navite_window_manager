@@ -174,6 +174,35 @@ public final class XueHuaNaviteWindowManagerPlugin: NSObject, FlutterPlugin, Flu
     }
 
     private func handleOnMainThread(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+        let args = call.arguments as? [String: Any] ?? [:]
+
+        // Application-level methods do not require an active NSWindow.
+        switch call.method {
+        case "ensureInitialized":
+            attachToWindowIfNeeded()
+            result(nil)
+            return
+
+        case "getLaunchAtStartupState":
+            result(XueHuaLaunchAtStartup.getState(args: args))
+            return
+
+        case "setLaunchAtStartup":
+            XueHuaLaunchAtStartup.setEnabled(args: args, result: result)
+            return
+
+        case "openLaunchAtStartupSettings":
+            result(XueHuaLaunchAtStartup.openSettings())
+            return
+
+        case "setSnapLayoutButtonRect", "setTitleBarDragRects", "setLinuxInteractiveRegion":
+            result(nil)
+            return
+
+        default:
+            break
+        }
+
         guard let window = attachToWindowIfNeeded() else {
             result(
                 FlutterError(
@@ -185,12 +214,7 @@ public final class XueHuaNaviteWindowManagerPlugin: NSObject, FlutterPlugin, Flu
             return
         }
 
-        let args = call.arguments as? [String: Any] ?? [:]
-
         switch call.method {
-        case "ensureInitialized":
-            result(nil)
-
         case "configure":
             let snapshot = configureAtomically(window: window, args: args)
             result(snapshot)
@@ -449,10 +473,6 @@ public final class XueHuaNaviteWindowManagerPlugin: NSObject, FlutterPlugin, Flu
 
         case "startResizing":
             // macOS natively handles edge resizing on all window borders when .resizable is in styleMask.
-            result(nil)
-
-        case "setSnapLayoutButtonRect", "setTitleBarDragRects":
-            // Windows-specific hit-test regions; safely no-op on macOS.
             result(nil)
 
         default:

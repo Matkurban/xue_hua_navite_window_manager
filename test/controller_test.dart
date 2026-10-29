@@ -16,6 +16,18 @@ class _RecordingPlatform
   final List<String> calls = <String>[];
   int ensureInitializedCalls = 0;
   WindowConfig? lastConfig;
+  LaunchAtStartupConfig? lastStartupConfig;
+  bool? lastStartupEnabled;
+  LaunchAtStartupState startupState = const LaunchAtStartupState(
+    isSupported: true,
+    isEnabled: false,
+    status: LaunchAtStartupStatus.disabled,
+    backend: LaunchAtStartupBackend.macosAppService,
+    identifier: 'com.xuehua.studio',
+    executablePath: '/Applications/Studio.app/Contents/MacOS/Studio',
+    canOpenSettings: true,
+  );
+  bool openStartupSettingsResult = true;
 
   WindowStateSnapshot state = const WindowStateSnapshot(
     bounds: Rect.fromLTWH(10, 20, 800, 600),
@@ -33,6 +45,18 @@ class _RecordingPlatform
     calls.clear();
     ensureInitializedCalls = 0;
     lastConfig = null;
+    lastStartupConfig = null;
+    lastStartupEnabled = null;
+    startupState = const LaunchAtStartupState(
+      isSupported: true,
+      isEnabled: false,
+      status: LaunchAtStartupStatus.disabled,
+      backend: LaunchAtStartupBackend.macosAppService,
+      identifier: 'com.xuehua.studio',
+      executablePath: '/Applications/Studio.app/Contents/MacOS/Studio',
+      canOpenSettings: true,
+    );
+    openStartupSettingsResult = true;
     state = const WindowStateSnapshot(
       bounds: Rect.fromLTWH(10, 20, 800, 600),
       isVisible: true,
@@ -99,6 +123,43 @@ class _RecordingPlatform
   @override
   Future<void> unmaximize() async {
     calls.add('unmaximize');
+  }
+
+  @override
+  Future<LaunchAtStartupState> getLaunchAtStartupState({
+    LaunchAtStartupConfig? config,
+  }) async {
+    lastStartupConfig = config;
+    calls.add('getLaunchAtStartupState');
+    return startupState;
+  }
+
+  @override
+  Future<LaunchAtStartupState> setLaunchAtStartup(
+    bool enabled, {
+    LaunchAtStartupConfig? config,
+  }) async {
+    lastStartupEnabled = enabled;
+    lastStartupConfig = config;
+    calls.add('setLaunchAtStartup($enabled)');
+    startupState = LaunchAtStartupState(
+      isSupported: startupState.isSupported,
+      isEnabled: enabled,
+      status: enabled
+          ? LaunchAtStartupStatus.enabled
+          : LaunchAtStartupStatus.disabled,
+      backend: startupState.backend,
+      identifier: config?.identifier ?? startupState.identifier,
+      executablePath: startupState.executablePath,
+      canOpenSettings: startupState.canOpenSettings,
+    );
+    return startupState;
+  }
+
+  @override
+  Future<bool> openLaunchAtStartupSettings() async {
+    calls.add('openLaunchAtStartupSettings');
+    return openStartupSettingsResult;
   }
 
   @override
@@ -175,7 +236,10 @@ void main() {
   XueHuaNaviteWindowManagerPlatform.instance = platform;
   final XueHuaNaviteWindowManager manager = XueHuaNaviteWindowManager.instance;
 
-  setUp(platform.reset);
+  setUp(() {
+    platform.reset();
+    manager.configureLaunchAtStartup(null);
+  });
 
   Future<void> deliver(WindowEvent event) async {
     platform.events.add(event);
@@ -365,6 +429,64 @@ void main() {
         XueHuaNaviteWindowManager.allocateLinuxInteractiveRegionId();
 
     expect(second, greaterThan(first));
+  });
+
+  group('launch at startup', () {
+    test(
+      'queries state, toggles startup, and opens OS startup settings',
+      () async {
+        expect(await manager.isLaunchAtStartupEnabled(), isFalse);
+        expect(platform.lastStartupConfig, isNull);
+
+        final LaunchAtStartupState enabled = await manager.setLaunchAtStartup(
+          true,
+        );
+        expect(enabled.isEnabled, isTrue);
+        expect(enabled.status, LaunchAtStartupStatus.enabled);
+        expect(await manager.isLaunchAtStartupEnabled(), isTrue);
+
+        final LaunchAtStartupState disabled = await manager.setLaunchAtStartup(
+          false,
+        );
+        expect(disabled.isEnabled, isFalse);
+        expect(disabled.status, LaunchAtStartupStatus.disabled);
+
+        expect(await manager.openLaunchAtStartupSettings(), isTrue);
+        expect(platform.calls, <String>[
+          'getLaunchAtStartupState',
+          'setLaunchAtStartup(true)',
+          'getLaunchAtStartupState',
+          'setLaunchAtStartup(false)',
+          'openLaunchAtStartupSettings',
+        ]);
+      },
+    );
+
+    test(
+      'configureLaunchAtStartup sets default config and per-call config overrides it',
+      () async {
+        const LaunchAtStartupConfig defaultConfig = LaunchAtStartupConfig(
+          identifier: 'com.xuehua.default',
+          arguments: <String>['--minimized'],
+        );
+        manager.configureLaunchAtStartup(defaultConfig);
+        expect(manager.defaultLaunchAtStartupConfig, defaultConfig);
+
+        await manager.getLaunchAtStartupState();
+        expect(platform.lastStartupConfig, defaultConfig);
+
+        const LaunchAtStartupConfig overrideConfig = LaunchAtStartupConfig(
+          identifier: 'com.xuehua.override',
+          macOSMode: MacOSLaunchAtStartupMode.launchAgent,
+        );
+        final LaunchAtStartupState updated = await manager.setLaunchAtStartup(
+          true,
+          config: overrideConfig,
+        );
+        expect(platform.lastStartupConfig, overrideConfig);
+        expect(updated.identifier, 'com.xuehua.override');
+      },
+    );
   });
 
   group('events', () {

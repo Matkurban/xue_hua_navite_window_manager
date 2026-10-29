@@ -1,6 +1,6 @@
 ---
 name: xue-hua-navite-window-manager
-description: Use when the user is working with xue_hua_navite_window_manager APIs (XueHuaNaviteWindowManager) to implement zero-flash desktop window startup, atomic single-channel window configuration (WindowConfig), custom frameless title bars with Windows 11 DWM rounded corners/shadow and Snap Layouts (HTMAXBUTTON), macOS traffic light buttons (x, y) offset positioning, native window dragging/resizing, and lifecycle event listeners across macOS, Windows, and Linux.
+description: Use when the user is working with xue_hua_navite_window_manager APIs (XueHuaNaviteWindowManager) to implement zero-flash desktop window startup, atomic single-channel window configuration (WindowConfig), custom frameless title bars with Windows 11 DWM rounded corners/shadow and Snap Layouts (HTMAXBUTTON), macOS traffic light buttons (x, y) offset positioning, native window dragging/resizing, launch-at-startup (auto-start on user login), and lifecycle event listeners across macOS, Windows, and Linux.
 ---
 
 # xue-hua-navite-window-manager
@@ -15,6 +15,7 @@ Provide idiomatic integration patterns, native Runner setup, platform difference
 - Building custom frameless title bars (`WindowCaption`, `DragArea`, `SnapLayoutButton`) that retain Windows 11 native DWM rounded corners (`DWMWCP_ROUND`), system drop shadow, and Windows 11 Snap Layouts (`HTMAXBUTTON`)
 - Intercepting window close requests (`preventClose: true` + `WindowListener.onWindowCloseRequested`) to display unsaved-changes confirmation dialogs or hide to the system tray
 - Initiating OS-level window dragging (`XueHuaNaviteWindowManager.instance.startDragging()`) and 8-direction edge resizing (`XueHuaNaviteWindowManager.instance.startResizing(ResizeEdge)`, `WindowResizeEdgeArea`)
+- Enabling, disabling, or inspecting cross-platform **Launch at Startup** (`setLaunchAtStartup`, `getLaunchAtStartupState`, `isLaunchAtStartupEnabled`, `configureLaunchAtStartup`, `openLaunchAtStartupSettings`) across macOS (`SMAppService` / `LaunchAgents`), Windows (`CurrentVersion\Run` + `StartupApproved\Run` / MSIX `StartupTask`), and Linux (XDG `~/.config/autostart`)
 
 ## Guidelines
 
@@ -24,6 +25,7 @@ Provide idiomatic integration patterns, native Runner setup, platform difference
 4. **Always pair `preventClose: true` with `XueHuaNaviteWindowManager.instance.destroy()`**: When `preventClose` is enabled, `close()` and the OS close button emit `onWindowCloseRequested()`. Call `destroy()` (not `close()`) when the user confirms exiting.
 5. **Remove `WindowListener` in `dispose()`**: Always call `XueHuaNaviteWindowManager.instance.removeListener(this)` when disposing a stateful widget that mixes in `WindowListener`.
 6. **Linux Wayland drag and center**: Use `DragArea` / `WindowResizeEdgeArea` (they register hit rects so the GDK filter can call `gtk_window_begin_move_drag` during the button press). Do not expect `center()` or `setPosition()` to move an already-mapped Wayland window. `center()` returns false in that case, and `WindowStateSnapshot.isPositionAuthoritative` is false. X11 keeps the async drag path and real centering.
+7. **Handle `requiresApproval` and `disabledByUser` when enabling Launch at Startup**: Always inspect the `LaunchAtStartupState.status` returned by `setLaunchAtStartup(true)` or `getLaunchAtStartupState()`. When the user previously disabled startup in OS settings (`disabledByUser`) or macOS requires Login Items approval (`requiresApproval`), guide the user with `openLaunchAtStartupSettings()`. Note that inside macOS App Sandbox, `SMAppService.mainApp` is used and custom CLI `arguments` are ignored (only unsandboxed `MacOSLaunchAtStartupMode.launchAgent`, Windows `windowsRegistry`, and Linux `linuxXdgAutostart` pass custom CLI flags).
 
 ## Examples
 

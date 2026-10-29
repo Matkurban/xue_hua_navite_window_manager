@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import '../xue_hua_navite_window_manager_platform_interface.dart';
+import 'launch_at_startup.dart';
 import 'window_config.dart';
 import 'window_enums.dart';
 import 'window_event.dart';
@@ -40,9 +41,22 @@ class XueHuaNaviteWindowManager {
   StreamSubscription<WindowEvent>? _eventSubscription;
   bool _isInitialized = false;
   WindowStateSnapshot? _lastSnapshot;
+  LaunchAtStartupConfig? _defaultLaunchAtStartupConfig;
 
   /// Latest cached [WindowStateSnapshot] updated automatically on configure and events.
   WindowStateSnapshot? get lastSnapshot => _lastSnapshot;
+
+  /// Default [LaunchAtStartupConfig] applied by [setLaunchAtStartup],
+  /// [getLaunchAtStartupState], and [isLaunchAtStartupEnabled] when an explicit
+  /// `config` argument is omitted.
+  LaunchAtStartupConfig? get defaultLaunchAtStartupConfig =>
+      _defaultLaunchAtStartupConfig;
+
+  /// Sets (or clears when `null`) the default [LaunchAtStartupConfig] used by
+  /// subsequent launch-at-startup calls when no per-call `config` is supplied.
+  void configureLaunchAtStartup(LaunchAtStartupConfig? config) {
+    _defaultLaunchAtStartupConfig = config;
+  }
 
   /// Broadcast stream of native [WindowEvent] notifications.
   Stream<WindowEvent> get events => _platform.windowEvents;
@@ -365,6 +379,49 @@ class XueHuaNaviteWindowManager {
     dragRects: dragRects,
     excludeRects: excludeRects,
   );
+
+  /// Queries the detailed [LaunchAtStartupState] from the operating system,
+  /// including whether startup registration is supported, enabled, or awaiting
+  /// user approval / disabled by the user in system settings.
+  ///
+  /// Uses [config] if provided, falling back to [defaultLaunchAtStartupConfig].
+  Future<LaunchAtStartupState> getLaunchAtStartupState({
+    LaunchAtStartupConfig? config,
+  }) => _platform.getLaunchAtStartupState(
+    config: config ?? _defaultLaunchAtStartupConfig,
+  );
+
+  /// Convenience helper returning `true` when the application is currently
+  /// registered and approved to launch automatically at user login.
+  Future<bool> isLaunchAtStartupEnabled({
+    LaunchAtStartupConfig? config,
+  }) async {
+    final LaunchAtStartupState state = await getLaunchAtStartupState(
+      config: config,
+    );
+    return state.isEnabled;
+  }
+
+  /// Enables or disables launching the application automatically when the user
+  /// logs in, returning the updated [LaunchAtStartupState] reported by the OS.
+  ///
+  /// Uses [config] if provided, falling back to [defaultLaunchAtStartupConfig].
+  Future<LaunchAtStartupState> setLaunchAtStartup(
+    bool enabled, {
+    LaunchAtStartupConfig? config,
+  }) => _platform.setLaunchAtStartup(
+    enabled,
+    config: config ?? _defaultLaunchAtStartupConfig,
+  );
+
+  /// Opens the operating system's native Startup / Login Items settings page
+  /// (`System Settings > General > Login Items` on macOS,
+  /// `Settings > Apps > Startup` on Windows 10/11).
+  ///
+  /// Returns `true` if the settings page was opened, or `false` on platforms
+  /// without a unified system startup settings URI (such as Linux).
+  Future<bool> openLaunchAtStartupSettings() =>
+      _platform.openLaunchAtStartupSettings();
 }
 
 /// Type alias for backward compatibility with architectural specifications referencing `NativeWindowController`.

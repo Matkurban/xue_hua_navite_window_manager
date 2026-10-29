@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'src/launch_at_startup.dart';
 import 'src/window_config.dart';
 import 'src/window_enums.dart';
 import 'src/window_event.dart';
@@ -373,5 +374,42 @@ class MethodChannelXueHuaNaviteWindowManager
             .toList(),
       },
     );
+  }
+
+  @override
+  Future<LaunchAtStartupState> getLaunchAtStartupState({
+    LaunchAtStartupConfig? config,
+  }) async {
+    final Map<String, dynamic>? payload = config?.toMap();
+    final Map<Object?, Object?>? result = await methodChannel
+        .invokeMapMethod<Object?, Object?>(
+          'getLaunchAtStartupState',
+          (payload == null || payload.isEmpty) ? null : payload,
+        );
+    return LaunchAtStartupState.fromMap(result ?? const <Object?, Object?>{});
+  }
+
+  @override
+  Future<LaunchAtStartupState> setLaunchAtStartup(
+    bool enabled, {
+    LaunchAtStartupConfig? config,
+  }) async {
+    final Map<Object?, Object?>? result = await methodChannel
+        .invokeMapMethod<Object?, Object?>(
+          'setLaunchAtStartup',
+          <String, dynamic>{'enabled': enabled, ...?config?.toMap()},
+        );
+    return LaunchAtStartupState.fromMap(result ?? const <Object?, Object?>{});
+  }
+
+  @override
+  Future<bool> openLaunchAtStartupSettings() async {
+    final Object? raw = await methodChannel.invokeMethod<Object?>(
+      'openLaunchAtStartupSettings',
+    );
+    if (raw is bool) {
+      return raw;
+    }
+    return false;
   }
 }

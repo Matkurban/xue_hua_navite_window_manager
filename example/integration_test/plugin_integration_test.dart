@@ -20,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:xue_hua_navite_window_manager/xue_hua_navite_window_manager.dart';
 
+import 'launch_at_startup_suite.dart' as launch_at_startup;
 import 'studio_app_suite.dart' as studio;
 import 'window_behavior_suite.dart' as behavior;
 import 'window_events_suite.dart' as events;
@@ -57,4 +58,5 @@ void main() {
   group('events', events.main);
   group('widgets', widgets.main);
   group('studio', studio.main);
+  group('launchAtStartup', launch_at_startup.main);
 }

@@ -264,6 +264,60 @@ final List<_Call> _calls = <_Call>[
       ],
     },
   ),
+  _Call(
+    'getLaunchAtStartupState default',
+    (p) => p.getLaunchAtStartupState(),
+    'getLaunchAtStartupState',
+  ),
+  _Call(
+    'getLaunchAtStartupState with config',
+    (p) => p.getLaunchAtStartupState(
+      config: const LaunchAtStartupConfig(
+        appName: 'XueHua Studio',
+        identifier: 'com.xuehua.studio',
+        executablePath: '/opt/xuehua/app',
+        arguments: <String>['--minimized'],
+        msixTaskId: 'StudioStartupTask',
+        macOSMode: MacOSLaunchAtStartupMode.launchAgent,
+      ),
+    ),
+    'getLaunchAtStartupState',
+    <String, Object?>{
+      'appName': 'XueHua Studio',
+      'identifier': 'com.xuehua.studio',
+      'executablePath': '/opt/xuehua/app',
+      'arguments': <String>['--minimized'],
+      'msixTaskId': 'StudioStartupTask',
+      'macOSMode': 'launchAgent',
+    },
+  ),
+  _Call(
+    'setLaunchAtStartup enable',
+    (p) => p.setLaunchAtStartup(
+      true,
+      config: const LaunchAtStartupConfig(
+        identifier: 'com.xuehua.studio',
+        arguments: <String>['--silent'],
+      ),
+    ),
+    'setLaunchAtStartup',
+    <String, Object?>{
+      'enabled': true,
+      'identifier': 'com.xuehua.studio',
+      'arguments': <String>['--silent'],
+    },
+  ),
+  _Call(
+    'setLaunchAtStartup disable',
+    (p) => p.setLaunchAtStartup(false),
+    'setLaunchAtStartup',
+    <String, Object?>{'enabled': false},
+  ),
+  _Call(
+    'openLaunchAtStartupSettings',
+    (p) => p.openLaunchAtStartupSettings(),
+    'openLaunchAtStartupSettings',
+  ),
 ];
 
 void main() {
@@ -295,6 +349,19 @@ void main() {
                 'width': 300.0,
                 'height': 200.0,
               };
+            case 'getLaunchAtStartupState':
+            case 'setLaunchAtStartup':
+              return <String, Object?>{
+                'isSupported': true,
+                'isEnabled': true,
+                'status': 'enabled',
+                'backend': 'macosAppService',
+                'identifier': 'com.xuehua.studio',
+                'executablePath': '/Applications/Studio.app/Contents/MacOS/Studio',
+                'canOpenSettings': true,
+              };
+            case 'openLaunchAtStartupSettings':
+              return true;
             default:
               return null;
           }
@@ -366,6 +433,9 @@ void main() {
       'setSnapLayoutButtonRect',
       'setLinuxInteractiveRegion',
       'setTitleBarDragRects',
+      'getLaunchAtStartupState',
+      'setLaunchAtStartup',
+      'openLaunchAtStartupSettings',
     });
   });
 
@@ -442,6 +512,33 @@ void main() {
           .setMockMethodCallHandler(channel, (MethodCall call) async => true);
       expect(await platform.center(), isTrue);
     });
+
+    test(
+      'launch-at-startup methods parse native payload and handle null safely',
+      () async {
+        final MethodChannelXueHuaNaviteWindowManager platform =
+            MethodChannelXueHuaNaviteWindowManager();
+
+        final LaunchAtStartupState queried =
+            await platform.getLaunchAtStartupState();
+        expect(queried.isSupported, isTrue);
+        expect(queried.isEnabled, isTrue);
+        expect(queried.status, LaunchAtStartupStatus.enabled);
+        expect(queried.backend, LaunchAtStartupBackend.macosAppService);
+        expect(queried.identifier, 'com.xuehua.studio');
+        expect(queried.canOpenSettings, isTrue);
+        expect(await platform.openLaunchAtStartupSettings(), isTrue);
+
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (MethodCall call) async => null);
+        final LaunchAtStartupState fallback =
+            await platform.setLaunchAtStartup(true);
+        expect(fallback.isSupported, isFalse);
+        expect(fallback.isEnabled, isFalse);
+        expect(fallback.status, LaunchAtStartupStatus.unsupported);
+        expect(await platform.openLaunchAtStartupSettings(), isFalse);
+      },
+    );
   });
 
   group('windowEvents', () {
@@ -569,6 +666,9 @@ void main() {
         () => bare.setTitleBarDragRects(dragRects: const <Rect>[]),
         throwsUnimplementedError,
       );
+      expect(bare.getLaunchAtStartupState, throwsUnimplementedError);
+      expect(() => bare.setLaunchAtStartup(true), throwsUnimplementedError);
+      expect(bare.openLaunchAtStartupSettings, throwsUnimplementedError);
     });
   });
 }

@@ -4,10 +4,10 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'xue_hua_navite_window_manager'
-  s.version          = '1.0.0'
+  s.version          = '1.1.0'
   s.summary          = 'High-performance cross-platform desktop window manager plugin for Flutter.'
   s.description      = <<-DESC
-High-performance cross-platform desktop window manager plugin for Flutter (macOS, Windows, Linux) featuring zero-flash startup, atomic window configuration, custom frameless window & DWM shadow/Snap Layouts, and macOS traffic lights positioning.
+High-performance cross-platform desktop window manager plugin for Flutter (macOS, Windows, Linux) featuring zero-flash startup, atomic window configuration, custom frameless window & DWM shadow/Snap Layouts, macOS traffic lights positioning, and native launch-at-startup registration.
                        DESC
   s.homepage         = 'https://github.com/Matkurban/xue_hua_navite_window_manager'
   s.license          = { :file => '../LICENSE' }

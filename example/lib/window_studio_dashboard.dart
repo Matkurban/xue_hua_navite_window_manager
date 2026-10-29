@@ -41,15 +41,32 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
   bool _isFocused = true;
   bool _snapButtonHovered = false;
 
+  LaunchAtStartupState _startupState = const LaunchAtStartupState(
+    isSupported: false,
+    isEnabled: false,
+    status: LaunchAtStartupStatus.unsupported,
+    backend: LaunchAtStartupBackend.none,
+    identifier: '',
+  );
+  bool _startupPassMinimizedArg = false;
+  bool _startupBusy = false;
+
   final List<String> _eventLogs = <String>[];
 
   bool get _isMacOS => !kIsWeb && Platform.isMacOS;
+
+  LaunchAtStartupConfig get _currentStartupConfig => LaunchAtStartupConfig(
+    arguments: _startupPassMinimizedArg
+        ? const <String>['--minimized']
+        : const <String>[],
+  );
 
   @override
   void initState() {
     super.initState();
     _windowManager.addListener(this);
     _refreshWindowState();
+    _refreshLaunchAtStartupState();
   }
 
   @override
@@ -74,6 +91,37 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
       });
     } catch (_) {
       // Ignored in widget tests.
+    }
+  }
+
+  Future<void> _refreshLaunchAtStartupState() async {
+    try {
+      final LaunchAtStartupState state = await _windowManager
+          .getLaunchAtStartupState(config: _currentStartupConfig);
+      if (!mounted) return;
+      setState(() => _startupState = state);
+    } catch (_) {
+      // Ignored in widget tests.
+    }
+  }
+
+  Future<void> _toggleLaunchAtStartup(bool enabled) async {
+    if (_startupBusy) return;
+    setState(() => _startupBusy = true);
+    try {
+      final LaunchAtStartupState updated = await _windowManager
+          .setLaunchAtStartup(enabled, config: _currentStartupConfig);
+      if (!mounted) return;
+      setState(() => _startupState = updated);
+      _appendLog(
+        'setLaunchAtStartup($enabled) -> ${updated.status.wireValue} (${updated.backend.wireValue})',
+      );
+    } catch (error) {
+      _appendLog('setLaunchAtStartup($enabled) error: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _startupBusy = false);
+      }
     }
   }
 
@@ -385,6 +433,8 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                                             _buildDragAndEdgeResizeCard(
                                               context,
                                             ),
+                                            const SizedBox(height: 16),
+                                            _buildLaunchAtStartupCard(context),
                                           ],
                                         ),
                                       ),
@@ -1024,6 +1074,101 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard>
                   icon: const Icon(Icons.close, size: 16),
                   label: const Text('Request Close'),
                 ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLaunchAtStartupCard(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    final TextTheme textTheme = theme.textTheme;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              '5. Launch at Startup (Login Auto-Start)',
+              style: textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Registers or removes user-login auto-start via SMAppService / LaunchAgents (macOS), '
+              'HKCU CurrentVersion\\Run & StartupApproved / MSIX StartupTask (Windows), '
+              'and XDG ~/.config/autostart (Linux).',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                _buildMetricBadge(
+                  context,
+                  'Startup Status',
+                  _startupState.status.wireValue,
+                ),
+                _buildMetricBadge(
+                  context,
+                  'Backend',
+                  _startupState.backend.wireValue,
+                ),
+                _buildMetricBadge(
+                  context,
+                  'Identifier',
+                  (_startupState.identifier == null ||
+                          _startupState.identifier!.isEmpty)
+                      ? '—'
+                      : _startupState.identifier!,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: <Widget>[
+                FilterChip(
+                  label: const Text('Enable Launch at Startup'),
+                  selected: _startupState.isEnabled,
+                  onSelected: _startupBusy || !_startupState.isSupported
+                      ? null
+                      : _toggleLaunchAtStartup,
+                ),
+                FilterChip(
+                  label: const Text('Pass --minimized Argument'),
+                  selected: _startupPassMinimizedArg,
+                  onSelected: _startupBusy
+                      ? null
+                      : (bool v) {
+                          setState(() => _startupPassMinimizedArg = v);
+                          _refreshLaunchAtStartupState();
+                        },
+                ),
+                OutlinedButton.icon(
+                  onPressed: _startupBusy ? null : _refreshLaunchAtStartupState,
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: const Text('Refresh Startup State'),
+                ),
+                if (_startupState.canOpenSettings)
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final bool opened = await _windowManager
+                          .openLaunchAtStartupSettings();
+                      _appendLog('openLaunchAtStartupSettings() -> $opened');
+                    },
+                    icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                    label: const Text('Open OS Startup Settings'),
+                  ),
               ],
             ),
           ],

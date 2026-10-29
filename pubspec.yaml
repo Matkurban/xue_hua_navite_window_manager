@@ -1,6 +1,6 @@
 name: xue_hua_navite_window_manager
-description: "Flutter desktop window manager for macOS, Windows, and Linux with zero-flash startup, atomic configuration, frameless windows, and native title bars."
-version: 1.0.5
+description: "Flutter desktop window manager for macOS, Windows, and Linux with zero-flash startup, atomic configuration, frameless windows, native title bars, and launch at startup."
+version: 1.1.0
 homepage: https://github.com/Matkurban/xue_hua_navite_window_manager
 repository: https://github.com/Matkurban/xue_hua_navite_window_manager
 issue_tracker: https://github.com/Matkurban/xue_hua_navite_window_manager/issues

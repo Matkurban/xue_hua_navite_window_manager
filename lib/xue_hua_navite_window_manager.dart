@@ -14,8 +14,12 @@
 ///   - macOS: Full-size content view, transparent title bar, and persistent
 ///     traffic lights `(x, y)` offset controller across resize and full-screen transitions.
 ///   - Linux: GTK3 frameless / header bar configuration, geometry hints, and edge resizing.
+/// - **Launch at Startup (Auto-Start on Login)**: Native zero-dependency registration
+///   across macOS (`SMAppService.mainApp` & `LaunchAgents`), Windows (`CurrentVersion\Run` +
+///   `StartupApproved\Run` & MSIX `StartupTask`), and Linux (XDG Autostart `.desktop`).
 library;
 
+export 'src/launch_at_startup.dart';
 export 'src/widgets/drag_area.dart';
 export 'src/widgets/snap_layout_button.dart';
 export 'src/widgets/window_caption.dart';
