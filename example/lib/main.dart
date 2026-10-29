@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:xue_hua_navite_window_manager/xue_hua_navite_window_manager.dart';
-import 'package:xue_hua_navite_window_manager_example/app_theme.dart';
 
-import 'window_studio_dashboard.dart';
+import 'pages/window_studio_dashboard.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

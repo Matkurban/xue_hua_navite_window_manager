@@ -7,7 +7,10 @@ void main() {
       for (final LaunchAtStartupStatus status in LaunchAtStartupStatus.values) {
         expect(LaunchAtStartupStatus.fromWire(status.wireValue), status);
       }
-      expect(LaunchAtStartupStatus.fromWire(null), LaunchAtStartupStatus.disabled);
+      expect(
+        LaunchAtStartupStatus.fromWire(null),
+        LaunchAtStartupStatus.disabled,
+      );
       expect(
         LaunchAtStartupStatus.fromWire('unknown_status'),
         LaunchAtStartupStatus.disabled,
@@ -34,7 +37,10 @@ void main() {
           in LaunchAtStartupBackend.values) {
         expect(LaunchAtStartupBackend.fromWire(backend.wireValue), backend);
       }
-      expect(LaunchAtStartupBackend.fromWire(null), LaunchAtStartupBackend.none);
+      expect(
+        LaunchAtStartupBackend.fromWire(null),
+        LaunchAtStartupBackend.none,
+      );
       expect(
         LaunchAtStartupBackend.fromWire('futureBackend'),
         LaunchAtStartupBackend.none,
@@ -50,32 +56,35 @@ void main() {
       expect(config.toMap(), isEmpty);
     });
 
-    test('populated config serializes all fields and ignores blank strings', () {
-      const LaunchAtStartupConfig full = LaunchAtStartupConfig(
-        appName: 'XueHua Studio',
-        identifier: 'com.xuehua.studio',
-        executablePath: '/Applications/XueHua.app/Contents/MacOS/XueHua',
-        arguments: <String>['--minimized', '--profile=work'],
-        msixTaskId: 'XueHuaStartupTask',
-        macOSMode: MacOSLaunchAtStartupMode.launchAgent,
-      );
-      expect(full.toMap(), <String, Object?>{
-        'appName': 'XueHua Studio',
-        'identifier': 'com.xuehua.studio',
-        'executablePath': '/Applications/XueHua.app/Contents/MacOS/XueHua',
-        'arguments': <String>['--minimized', '--profile=work'],
-        'msixTaskId': 'XueHuaStartupTask',
-        'macOSMode': 'launchAgent',
-      });
+    test(
+      'populated config serializes all fields and ignores blank strings',
+      () {
+        const LaunchAtStartupConfig full = LaunchAtStartupConfig(
+          appName: 'XueHua Studio',
+          identifier: 'com.xuehua.studio',
+          executablePath: '/Applications/XueHua.app/Contents/MacOS/XueHua',
+          arguments: <String>['--minimized', '--profile=work'],
+          msixTaskId: 'XueHuaStartupTask',
+          macOSMode: MacOSLaunchAtStartupMode.launchAgent,
+        );
+        expect(full.toMap(), <String, Object?>{
+          'appName': 'XueHua Studio',
+          'identifier': 'com.xuehua.studio',
+          'executablePath': '/Applications/XueHua.app/Contents/MacOS/XueHua',
+          'arguments': <String>['--minimized', '--profile=work'],
+          'msixTaskId': 'XueHuaStartupTask',
+          'macOSMode': 'launchAgent',
+        });
 
-      const LaunchAtStartupConfig blankStrings = LaunchAtStartupConfig(
-        appName: '   ',
-        identifier: '',
-        executablePath: '  ',
-        msixTaskId: '\t',
-      );
-      expect(blankStrings.toMap(), isEmpty);
-    });
+        const LaunchAtStartupConfig blankStrings = LaunchAtStartupConfig(
+          appName: '   ',
+          identifier: '',
+          executablePath: '  ',
+          msixTaskId: '\t',
+        );
+        expect(blankStrings.toMap(), isEmpty);
+      },
+    );
 
     test('copyWith updates and preserves fields; value equality holds', () {
       const LaunchAtStartupConfig base = LaunchAtStartupConfig(

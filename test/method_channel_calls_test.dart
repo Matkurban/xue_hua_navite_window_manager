@@ -357,7 +357,8 @@ void main() {
                 'status': 'enabled',
                 'backend': 'macosAppService',
                 'identifier': 'com.xuehua.studio',
-                'executablePath': '/Applications/Studio.app/Contents/MacOS/Studio',
+                'executablePath':
+                    '/Applications/Studio.app/Contents/MacOS/Studio',
                 'canOpenSettings': true,
               };
             case 'openLaunchAtStartupSettings':
@@ -519,8 +520,8 @@ void main() {
         final MethodChannelXueHuaNaviteWindowManager platform =
             MethodChannelXueHuaNaviteWindowManager();
 
-        final LaunchAtStartupState queried =
-            await platform.getLaunchAtStartupState();
+        final LaunchAtStartupState queried = await platform
+            .getLaunchAtStartupState();
         expect(queried.isSupported, isTrue);
         expect(queried.isEnabled, isTrue);
         expect(queried.status, LaunchAtStartupStatus.enabled);
@@ -531,8 +532,9 @@ void main() {
 
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(channel, (MethodCall call) async => null);
-        final LaunchAtStartupState fallback =
-            await platform.setLaunchAtStartup(true);
+        final LaunchAtStartupState fallback = await platform.setLaunchAtStartup(
+          true,
+        );
         expect(fallback.isSupported, isFalse);
         expect(fallback.isEnabled, isFalse);
         expect(fallback.status, LaunchAtStartupStatus.unsupported);

@@ -462,31 +462,28 @@ void main() {
       },
     );
 
-    test(
-      'configureLaunchAtStartup sets default config and per-call config overrides it',
-      () async {
-        const LaunchAtStartupConfig defaultConfig = LaunchAtStartupConfig(
-          identifier: 'com.xuehua.default',
-          arguments: <String>['--minimized'],
-        );
-        manager.configureLaunchAtStartup(defaultConfig);
-        expect(manager.defaultLaunchAtStartupConfig, defaultConfig);
+    test('configureLaunchAtStartup sets default config and per-call config overrides it', () async {
+      const LaunchAtStartupConfig defaultConfig = LaunchAtStartupConfig(
+        identifier: 'com.xuehua.default',
+        arguments: <String>['--minimized'],
+      );
+      manager.configureLaunchAtStartup(defaultConfig);
+      expect(manager.defaultLaunchAtStartupConfig, defaultConfig);
 
-        await manager.getLaunchAtStartupState();
-        expect(platform.lastStartupConfig, defaultConfig);
+      await manager.getLaunchAtStartupState();
+      expect(platform.lastStartupConfig, defaultConfig);
 
-        const LaunchAtStartupConfig overrideConfig = LaunchAtStartupConfig(
-          identifier: 'com.xuehua.override',
-          macOSMode: MacOSLaunchAtStartupMode.launchAgent,
-        );
-        final LaunchAtStartupState updated = await manager.setLaunchAtStartup(
-          true,
-          config: overrideConfig,
-        );
-        expect(platform.lastStartupConfig, overrideConfig);
-        expect(updated.identifier, 'com.xuehua.override');
-      },
-    );
+      const LaunchAtStartupConfig overrideConfig = LaunchAtStartupConfig(
+        identifier: 'com.xuehua.override',
+        macOSMode: MacOSLaunchAtStartupMode.launchAgent,
+      );
+      final LaunchAtStartupState updated = await manager.setLaunchAtStartup(
+        true,
+        config: overrideConfig,
+      );
+      expect(platform.lastStartupConfig, overrideConfig);
+      expect(updated.identifier, 'com.xuehua.override');
+    });
   });
 
   group('events', () {

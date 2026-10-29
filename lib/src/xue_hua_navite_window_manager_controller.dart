@@ -393,9 +393,7 @@ class XueHuaNaviteWindowManager {
 
   /// Convenience helper returning `true` when the application is currently
   /// registered and approved to launch automatically at user login.
-  Future<bool> isLaunchAtStartupEnabled({
-    LaunchAtStartupConfig? config,
-  }) async {
+  Future<bool> isLaunchAtStartupEnabled({LaunchAtStartupConfig? config}) async {
     final LaunchAtStartupState state = await getLaunchAtStartupState(
       config: config,
     );
