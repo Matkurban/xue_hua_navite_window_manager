@@ -2,7 +2,7 @@
 #include <glib/gstdio.h>
 #include <gtest/gtest.h>
 
-#include "include/xue_hua_navite_window_manager/xue_hua_navite_window_manager_plugin.h"
+#include <xue_hua_navite_window_manager/xue_hua_navite_window_manager_plugin.h>
 #include "xue_hua_navite_window_manager_plugin_private.h"
 
 namespace xue_hua_navite_window_manager {

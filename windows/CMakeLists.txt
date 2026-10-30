@@ -57,9 +57,10 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE UNICODE _UNICODE NOMINMAX)
 
 # Source include directories and library dependencies.
 # Links dwmapi (DWM rounded corners & shadows) and comctl32 (SetWindowSubclass).
-target_include_directories(${PLUGIN_NAME} INTERFACE
+target_include_directories(${PLUGIN_NAME} PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_include_directories(${PLUGIN_NAME} PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(${PLUGIN_NAME} PRIVATE
   flutter
@@ -104,6 +105,7 @@ apply_standard_settings(${TEST_RUNNER})
 target_compile_definitions(${TEST_RUNNER} PRIVATE UNICODE _UNICODE NOMINMAX)
 target_include_directories(${TEST_RUNNER} PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
+  "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 target_link_libraries(${TEST_RUNNER} PRIVATE

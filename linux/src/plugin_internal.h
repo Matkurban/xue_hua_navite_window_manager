@@ -1,7 +1,7 @@
 #ifndef XUE_HUA_PLUGIN_INTERNAL_H_
 #define XUE_HUA_PLUGIN_INTERNAL_H_
 
-#include "include/xue_hua_navite_window_manager/xue_hua_navite_window_manager_plugin.h"
+#include <xue_hua_navite_window_manager/xue_hua_navite_window_manager_plugin.h>
 
 #include <flutter_linux/flutter_linux.h>
 #include <gdk/gdk.h>

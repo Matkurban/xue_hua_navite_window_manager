@@ -1,4 +1,4 @@
-#include "xue_hua_navite_window_manager/xue_hua_navite_window_manager_plugin_c_api.h"
+#include <xue_hua_navite_window_manager/xue_hua_navite_window_manager_plugin_c_api.h>
 
 #include <flutter/plugin_registrar_windows.h>
 
