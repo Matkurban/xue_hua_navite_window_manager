@@ -234,6 +234,68 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  windowTest(
+    'applying Compact Immersive and System TitleBar from maximized state restores bounds and semantics cleanly',
+    (WidgetTester tester) async {
+      if (!await ensureWindowSystemHonorsStateChanges()) {
+        return;
+      }
+      final SemanticsHandle semantics = tester.ensureSemantics();
+      try {
+        await _launchStudio(tester);
+        final Size screen = sizes.screen;
+
+        // Step 1: Maximize (equivalent to double-clicking custom DragArea caption).
+        await windowManager.maximize();
+        await waitForState(
+          (WindowStateSnapshot s) => s.isMaximized,
+          reason: 'maximize() before preset transitions',
+        );
+        await _settle(tester);
+
+        // Step 2: Tap Compact Immersive (980×660) while maximized.
+        await _tap(tester, find.text('Compact Immersive (980×660)'));
+        await _pumpUntilFound(
+          tester,
+          find.textContaining('Atomic configure -> Compact Immersive'),
+        );
+        await waitForState(
+          (WindowStateSnapshot s) => !s.isMaximized,
+          reason: 'Compact Immersive preset to exit maximized state',
+        );
+        if (screen.width >= 1080 && screen.height >= 800) {
+          await waitForSize(
+            const Size(980, 660),
+            reason: 'Compact Immersive preset after maximize',
+          );
+        }
+
+        // Step 3: Tap System TitleBar (1100×720).
+        await _tap(tester, find.text('System TitleBar (1100×720)'));
+        await _pumpUntilFound(
+          tester,
+          find.textContaining('Atomic configure -> System Normal'),
+        );
+        await waitForState(
+          (WindowStateSnapshot s) => !s.isMaximized,
+          reason: 'System TitleBar preset to remain unmaximized',
+        );
+        if (screen.width >= 1200 && screen.height >= 860) {
+          await waitForSize(
+            const Size(1100, 720),
+            reason: 'System TitleBar preset after Compact Immersive',
+          );
+        }
+
+        await _pumpUntilVisible(tester);
+        await _settle(tester);
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
   windowTest('the Center button moves the window to the display center', (
     WidgetTester tester,
   ) async {

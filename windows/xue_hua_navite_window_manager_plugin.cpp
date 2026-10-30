@@ -38,6 +38,11 @@ constexpr UINT_PTR kWindowSubclassId = 0x5848574D;  // 'XHWM'
 // nested inside the mouse-up / SetCapture handler.
 constexpr UINT kSnapButtonInvokeMessage = WM_APP + 0x58;
 
+// Posted to flush queued EventChannel notifications at top-level on the Win32
+// message pump, preventing re-entrant Dart widget/semantics mutations inside
+// synchronous WndProc / SetWindowPos / UIAutomation hit-testing.
+constexpr UINT kFlushQueuedEventsMessage = WM_APP + 0x59;
+
 // Windows 11 DWM_WINDOW_CORNER_PREFERENCE values
 constexpr DWORD kDwmwcpDefault = 0;
 constexpr DWORD kDwmwcpDoNotRound = 1;
@@ -527,6 +532,8 @@ void XueHuaNaviteWindowManagerPlugin::DetachSubclass() {
   }
   is_subclassed_ = false;
   subclassed_hwnd_ = nullptr;
+  pending_events_.clear();
+  event_flush_posted_ = false;
 }
 
 UINT XueHuaNaviteWindowManagerPlugin::GetWindowDpi(HWND hwnd) const {
@@ -597,14 +604,17 @@ LRESULT XueHuaNaviteWindowManagerPlugin::HandleWindowMessage(
           !is_fullscreen_) {
         auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam);
         if (IsZoomed(hwnd)) {
-          // When maximized, constrain the client rect to the monitor's work area
-          // so the window does not spill off-screen or cover an auto-hide taskbar.
+          // When maximized, intersect the proposed window rect with the
+          // monitor's work area so the window does not spill off-screen or
+          // cover an auto-hide taskbar, while guaranteeing the client rect
+          // never exceeds the outer window bounds.
           HMONITOR monitor =
               MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
           MONITORINFO monitor_info{};
           monitor_info.cbSize = sizeof(MONITORINFO);
           if (GetMonitorInfoW(monitor, &monitor_info)) {
-            params->rgrc[0] = monitor_info.rcWork;
+            params->rgrc[0] =
+                ClampMaximizedClientRect(params->rgrc[0], monitor_info.rcWork);
           }
         } else {
           // Returning 0 without calling DefSubclassProc removes the top system
@@ -673,12 +683,12 @@ LRESULT XueHuaNaviteWindowManagerPlugin::HandleWindowMessage(
                                        cursor_dip_x, cursor_dip_y)) {
           if (!is_snap_button_hovered_) {
             is_snap_button_hovered_ = true;
-            EmitWindowEvent("snapButtonHovered", hwnd);
+            QueueWindowEvent("snapButtonHovered", hwnd);
           }
           return HTMAXBUTTON;
         } else if (is_snap_button_hovered_) {
           is_snap_button_hovered_ = false;
-          EmitWindowEvent("snapButtonLeft", hwnd);
+          QueueWindowEvent("snapButtonLeft", hwnd);
         }
 
         // 3c. Check explicit non-draggable exclusion rects.
@@ -746,8 +756,14 @@ LRESULT XueHuaNaviteWindowManagerPlugin::HandleWindowMessage(
     case kSnapButtonInvokeMessage: {
       snap_click_posted_ = false;
       if (snap_button_enabled_) {
-        EmitWindowEvent("snapButtonClicked", hwnd);
+        QueueWindowEvent("snapButtonClicked", hwnd);
+        FlushQueuedWindowEvents();
       }
+      return 0;
+    }
+
+    case kFlushQueuedEventsMessage: {
+      FlushQueuedWindowEvents();
       return 0;
     }
 
@@ -755,13 +771,14 @@ LRESULT XueHuaNaviteWindowManagerPlugin::HandleWindowMessage(
     case WM_MOUSELEAVE: {
       if (is_snap_button_hovered_) {
         is_snap_button_hovered_ = false;
-        EmitWindowEvent("snapButtonLeft", hwnd);
+        QueueWindowEvent("snapButtonLeft", hwnd);
       }
       break;
     }
 
     // 5. Native Message-Loop Level Min/Max Size Enforcement (`WM_GETMINMAXINFO`)
     case WM_GETMINMAXINFO: {
+      DefSubclassProc(hwnd, uMsg, wParam, lParam);
       auto* mmi = reinterpret_cast<MINMAXINFO*>(lParam);
       const double scale = GetScaleFactor(hwnd);
 
@@ -783,54 +800,63 @@ LRESULT XueHuaNaviteWindowManagerPlugin::HandleWindowMessage(
     // 6. Close Interception (`WM_CLOSE`)
     case WM_CLOSE: {
       if (!is_force_closing_ && prevent_close_) {
-        EmitWindowEvent("closeRequested", hwnd);
+        QueueWindowEvent("closeRequested", hwnd);
         return 0;
       }
       break;
     }
 
     // 7. Window Lifecycle & Geometry Event Notifications
+    // Let DefSubclassProc (Win32Window::MessageHandler) resize/focus the child
+    // FlutterWindowsView first before snapshotting and queueing Dart events.
     case WM_SIZE: {
+      const LRESULT def_result = DefSubclassProc(hwnd, uMsg, wParam, lParam);
       const bool currently_minimized = (wParam == SIZE_MINIMIZED);
       const bool currently_maximized = (wParam == SIZE_MAXIMIZED);
 
+      if (!currently_minimized) {
+        SyncChildViewSize(hwnd);
+      }
+
       if (currently_minimized && !was_minimized_) {
         was_minimized_ = true;
-        EmitWindowEvent("minimized", hwnd);
+        QueueWindowEvent("minimized", hwnd);
       } else if (!currently_minimized && was_minimized_) {
         was_minimized_ = false;
-        EmitWindowEvent("restored", hwnd);
+        QueueWindowEvent("restored", hwnd);
       }
 
       if (currently_maximized && !was_maximized_) {
         was_maximized_ = true;
-        EmitWindowEvent("maximized", hwnd);
+        QueueWindowEvent("maximized", hwnd);
       } else if (!currently_maximized && was_maximized_ && !currently_minimized) {
         was_maximized_ = false;
-        EmitWindowEvent("unmaximized", hwnd);
+        QueueWindowEvent("unmaximized", hwnd);
       }
 
       if (!currently_minimized) {
-        EmitWindowEvent("resized", hwnd);
+        QueueWindowEvent("resized", hwnd);
       }
-      break;
+      return def_result;
     }
 
     case WM_MOVE: {
+      const LRESULT def_result = DefSubclassProc(hwnd, uMsg, wParam, lParam);
       if (!IsIconic(hwnd)) {
-        EmitWindowEvent("moved", hwnd);
+        QueueWindowEvent("moved", hwnd);
       }
-      break;
+      return def_result;
     }
 
     case WM_ACTIVATE: {
+      const LRESULT def_result = DefSubclassProc(hwnd, uMsg, wParam, lParam);
       const WORD state = LOWORD(wParam);
       if (state == WA_ACTIVE || state == WA_CLICKACTIVE) {
-        EmitWindowEvent("focused", hwnd);
+        QueueWindowEvent("focused", hwnd);
       } else if (state == WA_INACTIVE) {
-        EmitWindowEvent("blurred", hwnd);
+        QueueWindowEvent("blurred", hwnd);
       }
-      break;
+      return def_result;
     }
 
     case WM_NCDESTROY: {
@@ -955,9 +981,10 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
   if (method == "show") {
     const bool focus = GetBoolArg(args, "focus").value_or(true);
     ShowWindow(hwnd, focus ? SW_SHOW : SW_SHOWNA);
+    SyncChildViewSize(hwnd);
     if (focus) {
       SetForegroundWindow(hwnd);
-      SetFocus(hwnd);
+      FocusFlutterView(hwnd);
     }
     result->Success();
     return;
@@ -974,7 +1001,7 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
       ShowWindow(hwnd, SW_RESTORE);
     }
     SetForegroundWindow(hwnd);
-    SetFocus(hwnd);
+    FocusFlutterView(hwnd);
     result->Success();
     return;
   }
@@ -1000,13 +1027,19 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
   }
 
   if (method == "maximize") {
+    if (is_fullscreen_) {
+      RestoreWindowForGeometry(hwnd);
+    }
     ShowWindow(hwnd, SW_MAXIMIZE);
+    SyncChildViewSize(hwnd);
     result->Success();
     return;
   }
 
   if (method == "unmaximize") {
-    ShowWindow(hwnd, SW_RESTORE);
+    if (is_fullscreen_ || IsZoomed(hwnd) != FALSE) {
+      RestoreWindowForGeometry(hwnd);
+    }
     result->Success();
     return;
   }
@@ -1018,7 +1051,7 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
   }
 
   if (method == "restore") {
-    ShowWindow(hwnd, SW_RESTORE);
+    RestoreWindowForGeometry(hwnd);
     result->Success();
     return;
   }
@@ -1029,6 +1062,7 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
       if (target_fs) {
         pre_fullscreen_style_ = GetWindowLongPtrW(hwnd, GWL_STYLE);
         pre_fullscreen_ex_style_ = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        pre_fullscreen_placement_.length = sizeof(WINDOWPLACEMENT);
         GetWindowPlacement(hwnd, &pre_fullscreen_placement_);
 
         SetWindowLongPtrW(
@@ -1050,17 +1084,19 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
                      mi.rcMonitor.right - mi.rcMonitor.left,
                      mi.rcMonitor.bottom - mi.rcMonitor.top,
                      SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
-        EmitWindowEvent("enteredFullScreen", hwnd);
+        SyncChildViewSize(hwnd);
+        QueueWindowEvent("enteredFullScreen", hwnd);
       } else {
         is_fullscreen_ = false;
         SetWindowLongPtrW(hwnd, GWL_STYLE, pre_fullscreen_style_);
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, pre_fullscreen_ex_style_);
         SetWindowPlacement(hwnd, &pre_fullscreen_placement_);
+        ApplyDwmFrameAndCorners(hwnd);
         SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
                          SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
-        ApplyDwmFrameAndCorners(hwnd);
-        EmitWindowEvent("exitedFullScreen", hwnd);
+        SyncChildViewSize(hwnd);
+        QueueWindowEvent("exitedFullScreen", hwnd);
       }
     }
     result->Success();
@@ -1068,6 +1104,11 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
   }
 
   if (method == "setBounds") {
+    if (ShouldRestoreWindowBeforeGeometry(
+            true, IsZoomed(hwnd) != FALSE, IsIconic(hwnd) != FALSE,
+            is_fullscreen_)) {
+      RestoreWindowForGeometry(hwnd);
+    }
     const double scale = GetScaleFactor(hwnd);
     RECT current{};
     GetWindowRect(hwnd, &current);
@@ -1091,6 +1132,7 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
     }
 
     SetWindowPos(hwnd, nullptr, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+    SyncChildViewSize(hwnd);
     result->Success();
     return;
   }
@@ -1101,6 +1143,11 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
   }
 
   if (method == "setSize") {
+    if (ShouldRestoreWindowBeforeGeometry(
+            true, IsZoomed(hwnd) != FALSE, IsIconic(hwnd) != FALSE,
+            is_fullscreen_)) {
+      RestoreWindowForGeometry(hwnd);
+    }
     const double scale = GetScaleFactor(hwnd);
     double width = GetDoubleArg(args, "width").value_or(800.0);
     double height = GetDoubleArg(args, "height").value_or(600.0);
@@ -1110,11 +1157,17 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
     const int h = DipToPhysical(height, scale);
     SetWindowPos(hwnd, nullptr, 0, 0, w, h,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    SyncChildViewSize(hwnd);
     result->Success();
     return;
   }
 
   if (method == "setPosition") {
+    if (ShouldRestoreWindowBeforeGeometry(
+            true, IsZoomed(hwnd) != FALSE, IsIconic(hwnd) != FALSE,
+            is_fullscreen_)) {
+      RestoreWindowForGeometry(hwnd);
+    }
     const double scale = GetScaleFactor(hwnd);
     const int x = DipToPhysical(GetDoubleArg(args, "x").value_or(0.0), scale);
     const int y = DipToPhysical(GetDoubleArg(args, "y").value_or(0.0), scale);
@@ -1125,6 +1178,11 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
   }
 
   if (method == "center") {
+    if (ShouldRestoreWindowBeforeGeometry(
+            true, IsZoomed(hwnd) != FALSE, IsIconic(hwnd) != FALSE,
+            is_fullscreen_)) {
+      RestoreWindowForGeometry(hwnd);
+    }
     const double scale = GetScaleFactor(hwnd);
     RECT current{};
     GetWindowRect(hwnd, &current);
@@ -1143,6 +1201,7 @@ void XueHuaNaviteWindowManagerPlugin::HandleMethodCall(
                  centered.right - centered.left,
                  centered.bottom - centered.top,
                  SWP_NOZORDER | SWP_NOACTIVATE);
+    SyncChildViewSize(hwnd);
     result->Success();
     return;
   }
@@ -1286,7 +1345,26 @@ flutter::EncodableMap XueHuaNaviteWindowManagerPlugin::ConfigureAtomically(
   if (auto style = GetStringArg(args, "titleBarStyle")) {
     title_bar_style_ = *style;
   }
-  ApplyResizable(hwnd, is_resizable_);
+
+  const auto w_dip = GetDoubleArg(args, "width");
+  const auto h_dip = GetDoubleArg(args, "height");
+  const auto x_dip = GetDoubleArg(args, "x");
+  const auto y_dip = GetDoubleArg(args, "y");
+  const bool center = GetBoolArg(args, "center").value_or(false);
+  const bool has_geometry_request = w_dip.has_value() || h_dip.has_value() ||
+                                    x_dip.has_value() || y_dip.has_value() ||
+                                    center;
+
+  // Restore to normal windowed state BEFORE reading GetWindowRect or calling
+  // SetWindowPos. Win32 SetWindowPos never clears WS_MAXIMIZE/WS_MINIMIZE, so
+  // applying windowed bounds onto a maximized HWND would leave IsZoomed(hwnd)
+  // true and cause WM_NCCALCSIZE / DWM to crop or stretch the client surface.
+  if (ShouldRestoreWindowBeforeGeometry(
+          has_geometry_request, IsZoomed(hwnd) != FALSE,
+          IsIconic(hwnd) != FALSE, is_fullscreen_)) {
+    RestoreWindowForGeometry(hwnd);
+  }
+
   ApplyDwmFrameAndCorners(hwnd);
 
   // 5. Compute Target Physical Bounds in Memory (Size -> Clamp -> Center or Position).
@@ -1297,12 +1375,12 @@ flutter::EncodableMap XueHuaNaviteWindowManagerPlugin::ConfigureAtomically(
   int target_w = current_rect.right - current_rect.left;
   int target_h = current_rect.bottom - current_rect.top;
 
-  if (auto w_dip = GetDoubleArg(args, "width")) {
+  if (w_dip.has_value()) {
     const double clamped_w =
         ClampDipAxis(*w_dip, min_width_dip_, max_width_dip_);
     target_w = DipToPhysical(clamped_w, scale);
   }
-  if (auto h_dip = GetDoubleArg(args, "height")) {
+  if (h_dip.has_value()) {
     const double clamped_h =
         ClampDipAxis(*h_dip, min_height_dip_, max_height_dip_);
     target_h = DipToPhysical(clamped_h, scale);
@@ -1311,16 +1389,15 @@ flutter::EncodableMap XueHuaNaviteWindowManagerPlugin::ConfigureAtomically(
   int target_x = current_rect.left;
   int target_y = current_rect.top;
 
-  const bool center = GetBoolArg(args, "center").value_or(false);
   if (center) {
     RECT centered = ComputeCenteredPhysicalRect(hwnd, target_w, target_h);
     target_x = centered.left;
     target_y = centered.top;
   } else {
-    if (auto x_dip = GetDoubleArg(args, "x")) {
+    if (x_dip.has_value()) {
       target_x = DipToPhysical(*x_dip, scale);
     }
-    if (auto y_dip = GetDoubleArg(args, "y")) {
+    if (y_dip.has_value()) {
       target_y = DipToPhysical(*y_dip, scale);
     }
   }
@@ -1330,8 +1407,17 @@ flutter::EncodableMap XueHuaNaviteWindowManagerPlugin::ConfigureAtomically(
       (GetWindowLongPtrW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0);
   HWND insert_after = always_on_top ? HWND_TOPMOST : HWND_NOTOPMOST;
 
+  UINT swp_flags = SWP_NOACTIVATE | SWP_FRAMECHANGED;
+  if (!w_dip.has_value() && !h_dip.has_value()) {
+    swp_flags |= SWP_NOSIZE;
+  }
+  if (!center && !x_dip.has_value() && !y_dip.has_value()) {
+    swp_flags |= SWP_NOMOVE;
+  }
+
   SetWindowPos(hwnd, insert_after, target_x, target_y, target_w, target_h,
-               SWP_NOACTIVATE | SWP_FRAMECHANGED);
+               swp_flags);
+  SyncChildViewSize(hwnd);
 
   // 7. Show immediately if requested.
   const bool show_when_ready =
@@ -1343,14 +1429,134 @@ flutter::EncodableMap XueHuaNaviteWindowManagerPlugin::ConfigureAtomically(
   return BuildWindowStateSnapshot(hwnd);
 }
 
+void XueHuaNaviteWindowManagerPlugin::RestoreWindowForGeometry(HWND hwnd) {
+  if (hwnd == nullptr || !IsWindow(hwnd)) {
+    return;
+  }
+
+  if (is_fullscreen_) {
+    is_fullscreen_ = false;
+    const LONG_PTR restored_style =
+        pre_fullscreen_style_ & ~(WS_MAXIMIZE | WS_MINIMIZE);
+    SetWindowLongPtrW(hwnd, GWL_STYLE, restored_style);
+    SetWindowLongPtrW(hwnd, GWL_EXSTYLE, pre_fullscreen_ex_style_);
+
+    WINDOWPLACEMENT wp = pre_fullscreen_placement_;
+    wp.length = sizeof(WINDOWPLACEMENT);
+    wp.flags &= ~WPF_RESTORETOMAXIMIZED;
+    wp.showCmd = IsWindowVisible(hwnd) ? SW_SHOWNORMAL : SW_HIDE;
+    SetWindowPlacement(hwnd, &wp);
+
+    ApplyDwmFrameAndCorners(hwnd);
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER |
+                     SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    if (was_maximized_) {
+      was_maximized_ = false;
+      QueueWindowEvent("unmaximized", hwnd);
+    }
+    if (was_minimized_) {
+      was_minimized_ = false;
+      QueueWindowEvent("restored", hwnd);
+    }
+    QueueWindowEvent("exitedFullScreen", hwnd);
+  }
+
+  if (IsZoomed(hwnd) != FALSE || IsIconic(hwnd) != FALSE) {
+    if (IsWindowVisible(hwnd) != FALSE) {
+      // SW_SHOWNORMAL restores both minimized and maximized windows directly to
+      // normal windowed state (even when WPF_RESTORETOMAXIMIZED was set).
+      ShowWindow(hwnd, SW_SHOWNORMAL);
+    } else {
+      WINDOWPLACEMENT wp{};
+      wp.length = sizeof(WINDOWPLACEMENT);
+      if (GetWindowPlacement(hwnd, &wp)) {
+        wp.flags &= ~WPF_RESTORETOMAXIMIZED;
+        wp.showCmd = SW_HIDE;
+        SetWindowPlacement(hwnd, &wp);
+      }
+    }
+
+    const LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    if ((style & (WS_MAXIMIZE | WS_MINIMIZE)) != 0) {
+      SetWindowLongPtrW(hwnd, GWL_STYLE,
+                        style & ~(WS_MAXIMIZE | WS_MINIMIZE));
+      SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER |
+                       SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
+
+    if (was_minimized_ && IsIconic(hwnd) == FALSE) {
+      was_minimized_ = false;
+      QueueWindowEvent("restored", hwnd);
+    }
+    if (was_maximized_ && IsZoomed(hwnd) == FALSE) {
+      was_maximized_ = false;
+      QueueWindowEvent("unmaximized", hwnd);
+    }
+  }
+}
+
+void XueHuaNaviteWindowManagerPlugin::SyncChildViewSize(HWND hwnd) {
+  if (hwnd == nullptr || !IsWindow(hwnd) || IsIconic(hwnd) != FALSE) {
+    return;
+  }
+  if (registrar_ == nullptr || registrar_->GetView() == nullptr) {
+    return;
+  }
+  HWND view_hwnd = registrar_->GetView()->GetNativeWindow();
+  if (view_hwnd == nullptr || view_hwnd == hwnd || !IsWindow(view_hwnd) ||
+      GetParent(view_hwnd) != hwnd) {
+    return;
+  }
+  RECT client{};
+  if (!GetClientRect(hwnd, &client)) {
+    return;
+  }
+  const int target_w = client.right - client.left;
+  const int target_h = client.bottom - client.top;
+  if (target_w <= 0 || target_h <= 0) {
+    return;
+  }
+  RECT view_rect{};
+  POINT top_left{0, 0};
+  if (GetClientRect(view_hwnd, &view_rect) &&
+      ClientToScreen(view_hwnd, &top_left) &&
+      ScreenToClient(hwnd, &top_left)) {
+    const int cur_w = view_rect.right - view_rect.left;
+    const int cur_h = view_rect.bottom - view_rect.top;
+    if (top_left.x == 0 && top_left.y == 0 && cur_w == target_w &&
+        cur_h == target_h) {
+      return;
+    }
+  }
+  MoveWindow(view_hwnd, 0, 0, target_w, target_h, TRUE);
+}
+
+void XueHuaNaviteWindowManagerPlugin::FocusFlutterView(HWND hwnd) {
+  if (registrar_ != nullptr && registrar_->GetView() != nullptr) {
+    HWND view_hwnd = registrar_->GetView()->GetNativeWindow();
+    if (view_hwnd != nullptr && IsWindow(view_hwnd)) {
+      SetFocus(view_hwnd);
+      return;
+    }
+  }
+  if (hwnd != nullptr && IsWindow(hwnd)) {
+    SetFocus(hwnd);
+  }
+}
+
 void XueHuaNaviteWindowManagerPlugin::MarkReadyToShow(HWND hwnd) {
+  SyncChildViewSize(hwnd);
   if (!IsWindowVisible(hwnd)) {
     ShowWindow(hwnd, SW_SHOWNORMAL);
+    RedrawWindow(hwnd, nullptr, nullptr,
+                 RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN);
+  } else {
+    InvalidateRect(hwnd, nullptr, FALSE);
   }
-  RedrawWindow(hwnd, nullptr, nullptr,
-               RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
   SetForegroundWindow(hwnd);
-  SetFocus(hwnd);
+  FocusFlutterView(hwnd);
 }
 
 void XueHuaNaviteWindowManagerPlugin::ApplyTitleBarStyle(
@@ -1361,28 +1567,41 @@ void XueHuaNaviteWindowManagerPlugin::ApplyTitleBarStyle(
   SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
                    SWP_FRAMECHANGED);
+  SyncChildViewSize(hwnd);
 }
 
 void XueHuaNaviteWindowManagerPlugin::ApplyDwmFrameAndCorners(HWND hwnd) {
-  // Maintain WS_THICKFRAME | WS_CAPTION | WS_MAXIMIZEBOX | WS_MINIMIZEBOX | WS_SYSMENU
-  // so Windows 11 Snap Layouts, Win+Arrow aero snap, and DWM animations work natively.
-  LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
-  style |= WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
-  if (is_resizable_) {
-    style |= WS_THICKFRAME | WS_MAXIMIZEBOX;
-  } else {
-    style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+  if (!is_fullscreen_) {
+    // Maintain WS_THICKFRAME | WS_CAPTION | WS_MAXIMIZEBOX | WS_MINIMIZEBOX | WS_SYSMENU
+    // so Windows 11 Snap Layouts, Win+Arrow aero snap, and DWM animations work natively.
+    LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    style |= WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+    if (is_resizable_) {
+      style |= WS_THICKFRAME | WS_MAXIMIZEBOX;
+    } else {
+      style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    }
+    SetWindowLongPtrW(hwnd, GWL_STYLE, style);
   }
-  SetWindowLongPtrW(hwnd, GWL_STYLE, style);
 
-  // Enable Windows 11 native rounded corners (`DWMWCP_ROUND`).
-  DWORD corner_pref = has_shadow_ ? kDwmwcpRound : kDwmwcpDoNotRound;
+  const bool custom_frame =
+      !is_fullscreen_ &&
+      (title_bar_style_ == "hidden" || title_bar_style_ == "immersive");
+
+  DWORD corner_pref = kDwmwcpDefault;
+  if (is_fullscreen_ || !has_shadow_) {
+    corner_pref = kDwmwcpDoNotRound;
+  } else if (custom_frame) {
+    corner_pref = kDwmwcpRound;
+  }
   DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corner_pref,
                         sizeof(corner_pref));
 
-  // Extend the DWM frame by 1px at the top (or 0 when shadow is disabled) so DWM
-  // renders the native system drop shadow around a custom frameless window.
-  MARGINS margins = has_shadow_ ? MARGINS{0, 0, 1, 0} : MARGINS{0, 0, 0, 0};
+  // Extend the DWM frame by 1px at the top only for custom frameless modes
+  // (`hidden` / `immersive`) when shadow is enabled; `normal` uses the standard
+  // non-client caption/frame without bleeding DWM margins into the client area.
+  MARGINS margins =
+      (custom_frame && has_shadow_) ? MARGINS{0, 0, 1, 0} : MARGINS{0, 0, 0, 0};
   DwmExtendFrameIntoClientArea(hwnd, &margins);
 }
 
@@ -1403,6 +1622,14 @@ void XueHuaNaviteWindowManagerPlugin::ApplyBackgroundColor(HWND hwnd,
 void XueHuaNaviteWindowManagerPlugin::ApplyResizable(HWND hwnd,
                                                      bool resizable) {
   is_resizable_ = resizable;
+  if (is_fullscreen_) {
+    if (resizable) {
+      pre_fullscreen_style_ |= (WS_THICKFRAME | WS_MAXIMIZEBOX);
+    } else {
+      pre_fullscreen_style_ &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    }
+    return;
+  }
   LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
   if (resizable) {
     style |= (WS_THICKFRAME | WS_MAXIMIZEBOX);
@@ -1593,9 +1820,9 @@ void XueHuaNaviteWindowManagerPlugin::FinishSnapButtonPress(HWND hwnd) {
   PostMessageW(hwnd, kSnapButtonInvokeMessage, 0, 0);
 }
 
-void XueHuaNaviteWindowManagerPlugin::EmitWindowEvent(const std::string& type,
-                                                      HWND hwnd) {
-  if (!event_sink_) {
+void XueHuaNaviteWindowManagerPlugin::QueueWindowEvent(const std::string& type,
+                                                       HWND hwnd) {
+  if (!event_sink_ || hwnd == nullptr || !IsWindow(hwnd)) {
     return;
   }
   flutter::EncodableMap payload = GetBoundsMap(hwnd);
@@ -1606,7 +1833,32 @@ void XueHuaNaviteWindowManagerPlugin::EmitWindowEvent(const std::string& type,
       flutter::EncodableValue(is_fullscreen_);
   payload[flutter::EncodableValue("timestamp")] =
       flutter::EncodableValue(CurrentEpochMillis());
-  event_sink_->Success(flutter::EncodableValue(payload));
+  pending_events_.push_back(std::move(payload));
+
+  if (!event_flush_posted_) {
+    event_flush_posted_ = true;
+    if (!PostMessageW(hwnd, kFlushQueuedEventsMessage, 0, 0)) {
+      event_flush_posted_ = false;
+    }
+  }
+}
+
+void XueHuaNaviteWindowManagerPlugin::FlushQueuedWindowEvents() {
+  event_flush_posted_ = false;
+  if (pending_events_.empty()) {
+    return;
+  }
+  std::vector<flutter::EncodableMap> batch;
+  batch.swap(pending_events_);
+  if (!event_sink_) {
+    return;
+  }
+  for (const auto& payload : batch) {
+    if (!event_sink_) {
+      break;
+    }
+    event_sink_->Success(flutter::EncodableValue(payload));
+  }
 }
 
 flutter::EncodableMap

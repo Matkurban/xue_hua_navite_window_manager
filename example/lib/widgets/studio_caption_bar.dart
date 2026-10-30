@@ -42,6 +42,7 @@ class StudioCaptionBar extends StatelessWidget {
         backgroundColor: colorScheme.surfaceContainer,
         foregroundColor: colorScheme.onSurface,
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Icon(
               Icons.desktop_windows_rounded,

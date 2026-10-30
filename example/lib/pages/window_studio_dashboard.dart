@@ -58,6 +58,17 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final Size viewportSize = MediaQuery.sizeOf(context);
+    final double captionHeight = math.min(
+      44.0,
+      math.max(0.0, viewportSize.height),
+    );
+    final bool showBody = viewportSize.height >= captionHeight + 72.0;
+    final double paneWidth = math.max(
+      0.0,
+      (viewportSize.width - 1.0) * 7.0 / 11.0,
+    );
+    final double contentWidth = math.max(paneWidth, 480.0);
 
     return ListenableBuilder(
       listenable: _controller,
@@ -73,182 +84,138 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard> {
                 _controller.resizable &&
                 !_controller.isMaximized &&
                 !_controller.isFullScreen,
-            child: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                final double maxHeight = constraints.maxHeight;
-                final double captionHeight = maxHeight.isFinite
-                    ? math.min(44.0, math.max(0.0, maxHeight))
-                    : 44.0;
-                final bool showBody =
-                    !maxHeight.isFinite || maxHeight > captionHeight + 1.0;
-
-                return Column(
-                  children: <Widget>[
-                    StudioCaptionBar(
-                      height: captionHeight,
-                      width: constraints.maxWidth.isFinite
-                          ? constraints.maxWidth
-                          : null,
-                      trafficLightsVisible: _controller.trafficLightsVisible,
-                      trafficLightsX: _controller.trafficLightsX,
-                      isFullScreen: _controller.isFullScreen,
-                      isFocused: _controller.isFocused,
-                      onCenterPressed: _controller.centerDefaultSize,
-                      onToggleFullScreenPressed: _controller.toggleFullScreen,
-                    ),
-                    if (showBody) Divider(height: 1, color: theme.dividerColor),
-                    if (showBody)
-                      Expanded(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            Expanded(
-                              flex: 7,
-                              child: LayoutBuilder(
-                                builder: (BuildContext context, BoxConstraints paneConstraints) {
-                                  final double paneWidth =
-                                      paneConstraints.maxWidth;
-                                  final double contentWidth = paneWidth.isFinite
-                                      ? math.max(paneWidth, 480.0)
-                                      : 480.0;
-                                  return SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: SizedBox(
-                                      width: contentWidth,
-                                      child: SingleChildScrollView(
-                                        padding: const EdgeInsets.all(20),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: <Widget>[
-                                            StatusTelemetryCard(
-                                              currentBounds:
-                                                  _controller.currentBounds,
-                                              isMaximized:
-                                                  _controller.isMaximized,
-                                              isMinimized:
-                                                  _controller.isMinimized,
-                                              isFullScreen:
-                                                  _controller.isFullScreen,
-                                              snapButtonHovered:
-                                                  _controller.snapButtonHovered,
-                                              onSyncState: _controller
-                                                  .refreshWindowState,
-                                            ),
-                                            const SizedBox(height: 16),
-                                            AtomicPresetsCard(
-                                              onApplyStudioDefault: _controller
-                                                  .applyStudioDefaultPreset,
-                                              onApplyCompactImmersive: _controller
-                                                  .applyCompactImmersivePreset,
-                                              onApplySystemTitleBar: _controller
-                                                  .applySystemTitleBarPreset,
-                                            ),
-                                            const SizedBox(height: 16),
-                                            TitleBarTrafficLightsCard(
-                                              titleBarStyle:
-                                                  _controller.titleBarStyle,
-                                              trafficLightsX:
-                                                  _controller.trafficLightsX,
-                                              trafficLightsY:
-                                                  _controller.trafficLightsY,
-                                              trafficLightsVisible: _controller
-                                                  .trafficLightsVisible,
-                                              isMacOS: _controller.isMacOS,
-                                              onTitleBarStyleChanged:
-                                                  _controller
-                                                      .updateTitleBarStyle,
-                                              onTrafficLightsXChanged:
-                                                  _controller
-                                                      .updateTrafficLightsX,
-                                              onTrafficLightsYChanged:
-                                                  _controller
-                                                      .updateTrafficLightsY,
-                                              onTrafficLightsVisibleChanged:
-                                                  _controller
-                                                      .updateTrafficLightsVisible,
-                                            ),
-                                            const SizedBox(height: 16),
-                                            BehaviorAppearanceCard(
-                                              preventClose:
-                                                  _controller.preventClose,
-                                              alwaysOnTop:
-                                                  _controller.alwaysOnTop,
-                                              resizable: _controller.resizable,
-                                              hasShadow: _controller.hasShadow,
-                                              opacity: _controller.opacity,
-                                              activeBackgroundColor:
-                                                  activeBgColor,
-                                              onPreventCloseChanged: _controller
-                                                  .updatePreventClose,
-                                              onAlwaysOnTopChanged:
-                                                  _controller.updateAlwaysOnTop,
-                                              onResizableChanged:
-                                                  _controller.updateResizable,
-                                              onHasShadowChanged:
-                                                  _controller.updateHasShadow,
-                                              onOpacityChanged:
-                                                  _controller.updateOpacity,
-                                              onBackgroundColorSelected:
-                                                  _controller
-                                                      .selectBackgroundColor,
-                                            ),
-                                            const SizedBox(height: 16),
-                                            DragEdgeResizeCard(
-                                              isMaximized:
-                                                  _controller.isMaximized,
-                                              onDragStart: _controller
-                                                  .onCustomDragAreaStart,
-                                              onMinimize: _controller.minimize,
-                                              onToggleMaximize:
-                                                  _controller.toggleMaximize,
-                                              onCenter:
-                                                  _controller.centerCurrentSize,
-                                              onRequestClose:
-                                                  _controller.requestClose,
-                                            ),
-                                            const SizedBox(height: 16),
-                                            LaunchAtStartupCard(
-                                              startupState:
-                                                  _controller.startupState,
-                                              passMinimizedArg: _controller
-                                                  .startupPassMinimizedArg,
-                                              isBusy: _controller.startupBusy,
-                                              onToggleEnabled: _controller
-                                                  .toggleLaunchAtStartup,
-                                              onPassMinimizedArgChanged:
-                                                  _controller
-                                                      .setStartupPassMinimizedArg,
-                                              onRefresh: _controller
-                                                  .refreshLaunchAtStartupState,
-                                              onOpenSettings: _controller
-                                                  .openLaunchAtStartupSettings,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+            child: Column(
+              children: <Widget>[
+                StudioCaptionBar(
+                  height: captionHeight,
+                  width: viewportSize.width,
+                  trafficLightsVisible: _controller.trafficLightsVisible,
+                  trafficLightsX: _controller.trafficLightsX,
+                  isFullScreen: _controller.isFullScreen,
+                  isFocused: _controller.isFocused,
+                  onCenterPressed: _controller.centerDefaultSize,
+                  onToggleFullScreenPressed: _controller.toggleFullScreen,
+                ),
+                if (showBody) Divider(height: 1, color: theme.dividerColor),
+                if (showBody)
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Expanded(
+                          flex: 7,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: SizedBox(
+                              width: contentWidth,
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    StatusTelemetryCard(
+                                      currentBounds: _controller.currentBounds,
+                                      isMaximized: _controller.isMaximized,
+                                      isMinimized: _controller.isMinimized,
+                                      isFullScreen: _controller.isFullScreen,
+                                      snapButtonHovered:
+                                          _controller.snapButtonHovered,
+                                      onSyncState:
+                                          _controller.refreshWindowState,
                                     ),
-                                  );
-                                },
+                                    const SizedBox(height: 16),
+                                    AtomicPresetsCard(
+                                      onApplyStudioDefault:
+                                          _controller.applyStudioDefaultPreset,
+                                      onApplyCompactImmersive: _controller
+                                          .applyCompactImmersivePreset,
+                                      onApplySystemTitleBar:
+                                          _controller.applySystemTitleBarPreset,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    TitleBarTrafficLightsCard(
+                                      titleBarStyle: _controller.titleBarStyle,
+                                      trafficLightsX:
+                                          _controller.trafficLightsX,
+                                      trafficLightsY:
+                                          _controller.trafficLightsY,
+                                      trafficLightsVisible:
+                                          _controller.trafficLightsVisible,
+                                      isMacOS: _controller.isMacOS,
+                                      onTitleBarStyleChanged:
+                                          _controller.updateTitleBarStyle,
+                                      onTrafficLightsXChanged:
+                                          _controller.updateTrafficLightsX,
+                                      onTrafficLightsYChanged:
+                                          _controller.updateTrafficLightsY,
+                                      onTrafficLightsVisibleChanged: _controller
+                                          .updateTrafficLightsVisible,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    BehaviorAppearanceCard(
+                                      preventClose: _controller.preventClose,
+                                      alwaysOnTop: _controller.alwaysOnTop,
+                                      resizable: _controller.resizable,
+                                      hasShadow: _controller.hasShadow,
+                                      opacity: _controller.opacity,
+                                      activeBackgroundColor: activeBgColor,
+                                      onPreventCloseChanged:
+                                          _controller.updatePreventClose,
+                                      onAlwaysOnTopChanged:
+                                          _controller.updateAlwaysOnTop,
+                                      onResizableChanged:
+                                          _controller.updateResizable,
+                                      onHasShadowChanged:
+                                          _controller.updateHasShadow,
+                                      onOpacityChanged:
+                                          _controller.updateOpacity,
+                                      onBackgroundColorSelected:
+                                          _controller.selectBackgroundColor,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    DragEdgeResizeCard(
+                                      isMaximized: _controller.isMaximized,
+                                      onDragStart:
+                                          _controller.onCustomDragAreaStart,
+                                      onMinimize: _controller.minimize,
+                                      onToggleMaximize:
+                                          _controller.toggleMaximize,
+                                      onCenter: _controller.centerCurrentSize,
+                                      onRequestClose: _controller.requestClose,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    LaunchAtStartupCard(
+                                      startupState: _controller.startupState,
+                                      passMinimizedArg:
+                                          _controller.startupPassMinimizedArg,
+                                      isBusy: _controller.startupBusy,
+                                      onToggleEnabled:
+                                          _controller.toggleLaunchAtStartup,
+                                      onPassMinimizedArgChanged:
+                                          _controller.setStartupPassMinimizedArg,
+                                      onRefresh: _controller
+                                          .refreshLaunchAtStartupState,
+                                      onOpenSettings: _controller
+                                          .openLaunchAtStartupSettings,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            VerticalDivider(
-                              width: 1,
-                              color: theme.dividerColor,
-                            ),
-                            Expanded(
-                              flex: 4,
-                              child: EventStreamPanel(
-                                eventLogs: _controller.eventLogs,
-                                onClear: _controller.clearLogs,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                  ],
-                );
-              },
+                        VerticalDivider(width: 1, color: theme.dividerColor),
+                        Expanded(
+                          flex: 4,
+                          child: EventStreamPanel(
+                            eventLogs: _controller.eventLogs,
+                            onClear: _controller.clearLogs,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
         );

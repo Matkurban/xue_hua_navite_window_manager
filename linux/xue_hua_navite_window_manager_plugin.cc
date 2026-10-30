@@ -45,6 +45,19 @@ struct _XueHuaNaviteWindowManagerPlugin {
   gint max_width;
   gint max_height;
 
+  // Deferred windowed geometry re-applied once the X11 WM / Wayland compositor
+  // finishes processing an async unmaximize / unfullscreen / deiconify request,
+  // preventing the WM from overwriting the requested size with its saved
+  // pre-maximize bounds.
+  gboolean pending_restore_geometry;
+  gboolean pending_has_size;
+  gint pending_width;
+  gint pending_height;
+  gboolean pending_center;
+  gboolean pending_has_pos;
+  gint pending_x;
+  gint pending_y;
+
   gboolean has_button_event;
   gint last_mouse_root_x;
   gint last_mouse_root_y;
@@ -82,6 +95,7 @@ G_DEFINE_TYPE(XueHuaNaviteWindowManagerPlugin,
 
 // Forward declarations
 static GtkWindow* get_main_window(XueHuaNaviteWindowManagerPlugin* self);
+static bool center_window(GtkWindow* window, gint width, gint height);
 static FlValue* build_window_state_snapshot(
     XueHuaNaviteWindowManagerPlugin* self,
     GtkWindow* window);
@@ -252,28 +266,59 @@ static gboolean on_window_state_event(GtkWidget* widget,
   GtkWindow* window = GTK_WINDOW(widget);
 
   if (event->changed_mask & GDK_WINDOW_STATE_MAXIMIZED) {
-    self->is_maximized =
+    const gboolean now_maximized =
         (event->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) != 0;
-    emit_window_event(self, window,
-                      self->is_maximized ? "maximized" : "unmaximized");
+    if (self->is_maximized != now_maximized) {
+      self->is_maximized = now_maximized;
+      emit_window_event(self, window,
+                        self->is_maximized ? "maximized" : "unmaximized");
+    }
   }
   if (event->changed_mask & GDK_WINDOW_STATE_ICONIFIED) {
-    self->is_minimized =
+    const gboolean now_minimized =
         (event->new_window_state & GDK_WINDOW_STATE_ICONIFIED) != 0;
-    emit_window_event(self, window,
-                      self->is_minimized ? "minimized" : "restored");
+    if (self->is_minimized != now_minimized) {
+      self->is_minimized = now_minimized;
+      emit_window_event(self, window,
+                        self->is_minimized ? "minimized" : "restored");
+    }
   }
   if (event->changed_mask & GDK_WINDOW_STATE_FULLSCREEN) {
-    self->is_fullscreen =
+    const gboolean now_fullscreen =
         (event->new_window_state & GDK_WINDOW_STATE_FULLSCREEN) != 0;
-    emit_window_event(
-        self, window,
-        self->is_fullscreen ? "enteredFullScreen" : "exitedFullScreen");
+    if (self->is_fullscreen != now_fullscreen) {
+      self->is_fullscreen = now_fullscreen;
+      emit_window_event(
+          self, window,
+          self->is_fullscreen ? "enteredFullScreen" : "exitedFullScreen");
+    }
   }
   if (event->changed_mask & GDK_WINDOW_STATE_FOCUSED) {
-    self->is_focused =
+    const gboolean now_focused =
         (event->new_window_state & GDK_WINDOW_STATE_FOCUSED) != 0;
-    emit_window_event(self, window, self->is_focused ? "focused" : "blurred");
+    if (self->is_focused != now_focused) {
+      self->is_focused = now_focused;
+      emit_window_event(self, window, self->is_focused ? "focused" : "blurred");
+    }
+  }
+
+  if (self->pending_restore_geometry &&
+      (event->new_window_state &
+       (GDK_WINDOW_STATE_MAXIMIZED | GDK_WINDOW_STATE_FULLSCREEN |
+        GDK_WINDOW_STATE_ICONIFIED)) == 0) {
+    self->pending_restore_geometry = FALSE;
+    if (self->pending_has_size && self->pending_width > 0 &&
+        self->pending_height > 0) {
+      gtk_window_set_default_size(window, self->pending_width,
+                                  self->pending_height);
+      gtk_window_resize(window, self->pending_width, self->pending_height);
+    }
+    if (self->pending_center) {
+      center_window(window, self->pending_has_size ? self->pending_width : 0,
+                    self->pending_has_size ? self->pending_height : 0);
+    } else if (self->pending_has_pos) {
+      gtk_window_move(window, self->pending_x, self->pending_y);
+    }
   }
   return FALSE;
 }
@@ -781,11 +826,117 @@ static void apply_background_color(XueHuaNaviteWindowManagerPlugin* self,
 }
 
 static void apply_title_bar_style(GtkWindow* window, const gchar* style) {
-  if (g_strcmp0(style, "hidden") == 0 || g_strcmp0(style, "immersive") == 0) {
+  const gboolean custom_frame =
+      (g_strcmp0(style, "hidden") == 0 || g_strcmp0(style, "immersive") == 0);
+  GtkWidget* custom_titlebar = gtk_window_get_titlebar(window);
+  if (custom_frame) {
+    if (custom_titlebar != nullptr) {
+      gtk_widget_set_visible(custom_titlebar, FALSE);
+    }
     gtk_window_set_decorated(window, FALSE);
   } else {
     gtk_window_set_decorated(window, TRUE);
+    if (custom_titlebar != nullptr) {
+      gtk_widget_set_visible(custom_titlebar, TRUE);
+    }
   }
+}
+
+static void show_main_window(XueHuaNaviteWindowManagerPlugin* self,
+                             GtkWindow* window,
+                             bool present) {
+  g_autoptr(FlView) view = FL_VIEW(g_weak_ref_get(&self->view));
+  if (view != nullptr) {
+    gtk_widget_show(GTK_WIDGET(view));
+  }
+  // Use gtk_widget_show instead of gtk_widget_show_all on the top-level window
+  // so a hidden custom GtkHeaderBar (TitleBarStyle.hidden / immersive) is never
+  // force-shown recursively.
+  gtk_widget_show(GTK_WIDGET(window));
+  if (present) {
+    gtk_window_present(window);
+    if (view != nullptr) {
+      gtk_widget_grab_focus(GTK_WIDGET(view));
+    }
+  }
+}
+
+static void clear_pending_restore_geometry(
+    XueHuaNaviteWindowManagerPlugin* self) {
+  self->pending_restore_geometry = FALSE;
+  self->pending_has_size = FALSE;
+  self->pending_center = FALSE;
+  self->pending_has_pos = FALSE;
+}
+
+static void record_pending_restore_geometry(
+    XueHuaNaviteWindowManagerPlugin* self,
+    bool has_size,
+    gint width,
+    gint height,
+    bool center,
+    bool has_pos,
+    gint x,
+    gint y) {
+  self->pending_restore_geometry = TRUE;
+  self->pending_has_size = has_size ? TRUE : FALSE;
+  self->pending_width = width;
+  self->pending_height = height;
+  self->pending_center = center ? TRUE : FALSE;
+  self->pending_has_pos = has_pos ? TRUE : FALSE;
+  self->pending_x = x;
+  self->pending_y = y;
+}
+
+// Restores a fullscreen, maximized, or minimized GtkWindow before applying
+// explicit windowed geometry. Returns true when an async WM transition was
+// initiated on a mapped window so the caller can also record a deferred
+// post-restore geometry pass for EWMH / Wayland compositors.
+static bool restore_window_for_geometry(XueHuaNaviteWindowManagerPlugin* self,
+                                        GtkWindow* window,
+                                        bool has_geometry_request) {
+  const bool live_maximized =
+      (self->is_maximized != FALSE) ||
+      (gtk_window_is_maximized(window) != FALSE);
+  GdkWindow* gdk_win = gtk_widget_get_window(GTK_WIDGET(window));
+  const GdkWindowState gdk_state =
+      gdk_win != nullptr ? gdk_window_get_state(gdk_win)
+                         : static_cast<GdkWindowState>(0);
+  const bool live_fullscreen =
+      (self->is_fullscreen != FALSE) ||
+      ((gdk_state & GDK_WINDOW_STATE_FULLSCREEN) != 0);
+  const bool live_minimized =
+      (self->is_minimized != FALSE) ||
+      ((gdk_state & GDK_WINDOW_STATE_ICONIFIED) != 0);
+
+  const XueHuaGeometryRestorePlan plan = xue_hua_plan_geometry_restore(
+      has_geometry_request, live_fullscreen, live_maximized, live_minimized);
+  if (!plan.unfullscreen && !plan.unmaximize && !plan.deiconify) {
+    return false;
+  }
+
+  if (plan.unfullscreen) {
+    gtk_window_unfullscreen(window);
+    if (self->is_fullscreen) {
+      self->is_fullscreen = FALSE;
+      emit_window_event(self, window, "exitedFullScreen");
+    }
+  }
+  if (plan.unmaximize) {
+    gtk_window_unmaximize(window);
+    if (self->is_maximized) {
+      self->is_maximized = FALSE;
+      emit_window_event(self, window, "unmaximized");
+    }
+  }
+  if (plan.deiconify) {
+    gtk_window_deiconify(window);
+    if (self->is_minimized) {
+      self->is_minimized = FALSE;
+      emit_window_event(self, window, "restored");
+    }
+  }
+  return gtk_widget_get_mapped(GTK_WIDGET(window)) != FALSE;
 }
 
 // Returns whether the position change is known to be applied. Resizing still
@@ -1389,8 +1540,17 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
     apply_geometry_hints(self, window);
 
     gdouble width = 0, height = 0;
-    const gboolean has_size = get_double_arg(args, "width", &width) &&
-                              get_double_arg(args, "height", &height);
+    const bool has_size = (get_double_arg(args, "width", &width) &&
+                           get_double_arg(args, "height", &height));
+    const bool center = get_bool_arg(args, "center", FALSE) != FALSE;
+    gdouble x = 0, y = 0;
+    const bool has_pos = !center && get_double_arg(args, "x", &x) &&
+                         get_double_arg(args, "y", &y);
+    const bool has_geometry_request = has_size || center || has_pos;
+
+    const bool async_restore =
+        restore_window_for_geometry(self, window, has_geometry_request);
+
     gint target_w = 0;
     gint target_h = 0;
     if (has_size) {
@@ -1399,44 +1559,49 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
           static_cast<gint>(std::lround(height)));
       target_w = clamped.width;
       target_h = clamped.height;
+      gtk_window_set_default_size(window, target_w, target_h);
       gtk_window_resize(window, target_w, target_h);
     }
 
-    if (get_bool_arg(args, "center", FALSE)) {
+    const gint target_x = has_pos ? static_cast<gint>(std::lround(x)) : 0;
+    const gint target_y = has_pos ? static_cast<gint>(std::lround(y)) : 0;
+    if (center) {
       center_window(window, target_w, target_h);
-    } else {
-      gdouble x = 0, y = 0;
-      if (get_double_arg(args, "x", &x) && get_double_arg(args, "y", &y)) {
-        gtk_window_move(window, static_cast<gint>(std::lround(x)),
-                        static_cast<gint>(std::lround(y)));
-      }
+    } else if (has_pos) {
+      gtk_window_move(window, target_x, target_y);
+    }
+
+    if (async_restore) {
+      record_pending_restore_geometry(self, has_size, target_w, target_h,
+                                      center, has_pos, target_x, target_y);
+    } else if (has_geometry_request) {
+      clear_pending_restore_geometry(self);
     }
 
     if (get_bool_arg(args, "showWhenReady", FALSE)) {
-      gtk_widget_show_all(GTK_WIDGET(window));
-      gtk_window_present(window);
+      show_main_window(self, window, true);
     }
 
     g_autoptr(FlValue) snapshot = build_window_state_snapshot(self, window);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(snapshot));
   } else if (strcmp(method, "markReadyToShow") == 0) {
-    gtk_widget_show_all(GTK_WIDGET(window));
-    gtk_window_present(window);
+    show_main_window(self, window, true);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "getState") == 0) {
     g_autoptr(FlValue) snapshot = build_window_state_snapshot(self, window);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(snapshot));
   } else if (strcmp(method, "show") == 0) {
-    gtk_widget_show_all(GTK_WIDGET(window));
-    if (get_bool_arg(args, "focus", TRUE)) {
-      gtk_window_present(window);
-    }
+    show_main_window(self, window, get_bool_arg(args, "focus", TRUE) != FALSE);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "hide") == 0) {
     gtk_widget_hide(GTK_WIDGET(window));
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "focus") == 0) {
     gtk_window_present(window);
+    g_autoptr(FlView) view = FL_VIEW(g_weak_ref_get(&self->view));
+    if (view != nullptr) {
+      gtk_widget_grab_focus(GTK_WIDGET(view));
+    }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "blur") == 0) {
     GdkWindow* gdk_win = gtk_widget_get_window(GTK_WIDGET(window));
@@ -1459,19 +1624,28 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
     gtk_widget_destroy(GTK_WIDGET(window));
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "maximize") == 0) {
+    clear_pending_restore_geometry(self);
+    if (self->is_fullscreen) {
+      gtk_window_unfullscreen(window);
+    }
     gtk_window_maximize(window);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "unmaximize") == 0) {
+    clear_pending_restore_geometry(self);
     gtk_window_unmaximize(window);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "minimize") == 0) {
+    clear_pending_restore_geometry(self);
     gtk_window_iconify(window);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "restore") == 0) {
+    clear_pending_restore_geometry(self);
+    gtk_window_unfullscreen(window);
     gtk_window_deiconify(window);
     gtk_window_unmaximize(window);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "setFullScreen") == 0) {
+    clear_pending_restore_geometry(self);
     if (get_bool_arg(args, "isFullScreen", FALSE)) {
       gtk_window_fullscreen(window);
     } else {
@@ -1480,43 +1654,80 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "setBounds") == 0) {
     gdouble x = 0, y = 0, w = 0, h = 0;
-    if (get_double_arg(args, "x", &x) && get_double_arg(args, "y", &y)) {
-      gtk_window_move(window, static_cast<gint>(std::lround(x)),
-                      static_cast<gint>(std::lround(y)));
-    }
-    if (get_double_arg(args, "width", &w) &&
-        get_double_arg(args, "height", &h)) {
+    const bool has_pos =
+        get_double_arg(args, "x", &x) && get_double_arg(args, "y", &y);
+    const bool has_size =
+        get_double_arg(args, "width", &w) && get_double_arg(args, "height", &h);
+    const bool has_geometry_request = has_pos || has_size;
+    const bool async_restore =
+        restore_window_for_geometry(self, window, has_geometry_request);
+
+    gint target_w = 0;
+    gint target_h = 0;
+    if (has_size) {
       const XueHuaClampedSize clamped = clamp_to_stored_limits(
           self, static_cast<gint>(std::lround(w)),
           static_cast<gint>(std::lround(h)));
-      gtk_window_resize(window, clamped.width, clamped.height);
+      target_w = clamped.width;
+      target_h = clamped.height;
+      gtk_window_set_default_size(window, target_w, target_h);
+      gtk_window_resize(window, target_w, target_h);
+    }
+    const gint target_x = has_pos ? static_cast<gint>(std::lround(x)) : 0;
+    const gint target_y = has_pos ? static_cast<gint>(std::lround(y)) : 0;
+    if (has_pos) {
+      gtk_window_move(window, target_x, target_y);
+    }
+    if (async_restore) {
+      record_pending_restore_geometry(self, has_size, target_w, target_h, false,
+                                      has_pos, target_x, target_y);
+    } else if (has_geometry_request) {
+      clear_pending_restore_geometry(self);
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "getBounds") == 0) {
     g_autoptr(FlValue) bounds = get_bounds_map(window);
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(bounds));
   } else if (strcmp(method, "setSize") == 0) {
+    const bool async_restore = restore_window_for_geometry(self, window, true);
     gdouble w = 800, h = 600;
     get_double_arg(args, "width", &w);
     get_double_arg(args, "height", &h);
     const XueHuaClampedSize clamped = clamp_to_stored_limits(
         self, static_cast<gint>(std::lround(w)),
         static_cast<gint>(std::lround(h)));
+    gtk_window_set_default_size(window, clamped.width, clamped.height);
     gtk_window_resize(window, clamped.width, clamped.height);
+    if (async_restore) {
+      record_pending_restore_geometry(self, true, clamped.width, clamped.height,
+                                      false, false, 0, 0);
+    } else {
+      clear_pending_restore_geometry(self);
+    }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "setPosition") == 0) {
+    const bool async_restore = restore_window_for_geometry(self, window, true);
     gdouble x = 0, y = 0;
     get_double_arg(args, "x", &x);
     get_double_arg(args, "y", &y);
-    gtk_window_move(window, static_cast<gint>(std::lround(x)),
-                    static_cast<gint>(std::lround(y)));
+    const gint target_x = static_cast<gint>(std::lround(x));
+    const gint target_y = static_cast<gint>(std::lround(y));
+    gtk_window_move(window, target_x, target_y);
+    if (async_restore) {
+      record_pending_restore_geometry(self, false, 0, 0, false, true, target_x,
+                                      target_y);
+    } else {
+      clear_pending_restore_geometry(self);
+    }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
   } else if (strcmp(method, "center") == 0) {
+    const bool async_restore = restore_window_for_geometry(self, window, true);
     gdouble w = 0, h = 0;
     gint target_w = 0;
     gint target_h = 0;
-    if (get_double_arg(args, "width", &w) &&
-        get_double_arg(args, "height", &h)) {
+    const bool has_size =
+        get_double_arg(args, "width", &w) && get_double_arg(args, "height", &h);
+    if (has_size) {
       const XueHuaClampedSize clamped = clamp_to_stored_limits(
           self, static_cast<gint>(std::lround(w)),
           static_cast<gint>(std::lround(h)));
@@ -1524,6 +1735,12 @@ static void xue_hua_navite_window_manager_plugin_handle_method_call(
       target_h = clamped.height;
     }
     const bool applied = center_window(window, target_w, target_h);
+    if (async_restore) {
+      record_pending_restore_geometry(self, has_size, target_w, target_h, true,
+                                      false, 0, 0);
+    } else {
+      clear_pending_restore_geometry(self);
+    }
     g_autoptr(FlValue) applied_value = fl_value_new_bool(applied);
     response =
         FL_METHOD_RESPONSE(fl_method_success_response_new(applied_value));

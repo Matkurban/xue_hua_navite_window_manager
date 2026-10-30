@@ -123,6 +123,69 @@ void main() {
     expect(pressed, 1);
     expect(platform.maximizeCount, 0);
   });
+
+  testWidgets(
+    'WindowCaption keeps semantics tree valid across maximize/compact/minimize resizes',
+    (WidgetTester tester) async {
+      final SemanticsHandle semantics = tester.ensureSemantics();
+      try {
+        Size currentSize = const Size(1920, 44);
+        late StateSetter setBoxSize;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Center(
+              child: StatefulBuilder(
+                builder: (BuildContext context, StateSetter setState) {
+                  setBoxSize = setState;
+                  return SizedBox(
+                    width: currentSize.width,
+                    height: currentSize.height,
+                    child: const WindowCaption(
+                      height: 44,
+                      leading: Icon(Icons.apps_rounded),
+                      title: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(Icons.desktop_windows_rounded),
+                          SizedBox(width: 10),
+                          Text('XueHua Native Window Manager Studio'),
+                        ],
+                      ),
+                      actions: <Widget>[
+                        Icon(Icons.filter_center_focus),
+                        Icon(Icons.fullscreen_rounded),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pump(null, EnginePhase.sendSemanticsUpdate);
+        expect(tester.takeException(), isNull);
+
+        for (final Size next in const <Size>[
+          Size(980, 44),
+          Size(159, 27),
+          Size(72, 24),
+          Size(159, 0),
+          Size(1100, 44),
+          Size(1280, 44),
+        ]) {
+          setBoxSize(() => currentSize = next);
+          await tester.pump(null, EnginePhase.sendSemanticsUpdate);
+          expect(tester.takeException(), isNull, reason: 'size=$next');
+        }
+
+        expect(find.byIcon(Icons.crop_square), findsOneWidget);
+      } finally {
+        semantics.dispose();
+      }
+    },
+    variant: windowsCaption,
+  );
 }
 
 Future<void> _pumpCaption(

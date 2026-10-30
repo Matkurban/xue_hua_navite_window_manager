@@ -111,18 +111,22 @@ class WindowStudioController extends ChangeNotifier with WindowListener {
 
   // MARK: - Telemetry & Logging
 
+  void _applySnapshot(WindowStateSnapshot snapshot) {
+    _currentBounds = snapshot.bounds;
+    _isMaximized = snapshot.isMaximized;
+    _isMinimized = snapshot.isMinimized;
+    _isFullScreen = snapshot.isFullScreen;
+    _isFocused = snapshot.isFocused;
+    _alwaysOnTop = snapshot.isAlwaysOnTop;
+    _resizable = snapshot.isResizable;
+    _preventClose = snapshot.isPreventClose;
+  }
+
   Future<void> refreshWindowState() async {
     try {
       final WindowStateSnapshot snapshot = await _windowManager.getState();
       if (_disposed) return;
-      _currentBounds = snapshot.bounds;
-      _isMaximized = snapshot.isMaximized;
-      _isMinimized = snapshot.isMinimized;
-      _isFullScreen = snapshot.isFullScreen;
-      _isFocused = snapshot.isFocused;
-      _alwaysOnTop = snapshot.isAlwaysOnTop;
-      _resizable = snapshot.isResizable;
-      _preventClose = snapshot.isPreventClose;
+      _applySnapshot(snapshot);
       _notify();
     } catch (_) {
       // Ignored in headless widget tests.
@@ -172,7 +176,7 @@ class WindowStudioController extends ChangeNotifier with WindowListener {
     _trafficLightsX = 16;
     _trafficLightsY = 14;
     _trafficLightsVisible = true;
-    _currentBounds = snap.bounds;
+    _applySnapshot(snap);
     appendLog('Atomic configure -> Studio Default (1280x820)');
   }
 
@@ -196,7 +200,7 @@ class WindowStudioController extends ChangeNotifier with WindowListener {
     _titleBarStyle = TitleBarStyle.immersive;
     _trafficLightsX = 22;
     _trafficLightsY = 18;
-    _currentBounds = snap.bounds;
+    _applySnapshot(snap);
     appendLog('Atomic configure -> Compact Immersive (980x660)');
   }
 
@@ -212,7 +216,7 @@ class WindowStudioController extends ChangeNotifier with WindowListener {
     );
     if (_disposed) return;
     _titleBarStyle = TitleBarStyle.normal;
-    _currentBounds = snap.bounds;
+    _applySnapshot(snap);
     appendLog('Atomic configure -> System Normal (1100x720)');
   }
 

@@ -211,6 +211,18 @@ XueHuaClampedSize xue_hua_clamp_window_size(int width,
   return size;
 }
 
+XueHuaGeometryRestorePlan xue_hua_plan_geometry_restore(
+    bool has_geometry_request,
+    bool is_fullscreen,
+    bool is_maximized,
+    bool is_minimized) {
+  XueHuaGeometryRestorePlan plan;
+  plan.unfullscreen = has_geometry_request && is_fullscreen;
+  plan.unmaximize = has_geometry_request && is_maximized;
+  plan.deiconify = has_geometry_request && is_minimized;
+  return plan;
+}
+
 namespace {
 
 bool is_ascii_space(char ch) {

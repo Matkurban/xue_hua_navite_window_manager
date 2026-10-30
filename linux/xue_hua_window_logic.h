@@ -150,6 +150,24 @@ XueHuaClampedSize xue_hua_clamp_window_size(int width,
                                             int max_width,
                                             int max_height);
 
+struct XueHuaGeometryRestorePlan {
+  bool unfullscreen;
+  bool unmaximize;
+  bool deiconify;
+};
+
+// Plans which modal window states must be cleared before applying explicit
+// windowed geometry (`configure`, `setBounds`, `setSize`, `setPosition`,
+// `center`). On X11 and Wayland, `gtk_window_resize` / `gtk_window_move` do not
+// clear `_NET_WM_STATE_MAXIMIZED` / `xdg_toplevel` maximized or fullscreen
+// states, causing WMs to ignore the resize or push a maximized surface
+// off-screen when centered.
+XueHuaGeometryRestorePlan xue_hua_plan_geometry_restore(
+    bool has_geometry_request,
+    bool is_fullscreen,
+    bool is_maximized,
+    bool is_minimized);
+
 enum XueHuaLinuxStartupStatus {
   XUE_HUA_LINUX_STARTUP_DISABLED = 0,
   XUE_HUA_LINUX_STARTUP_ENABLED = 1,

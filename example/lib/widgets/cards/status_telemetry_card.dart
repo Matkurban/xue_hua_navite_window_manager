@@ -35,49 +35,38 @@ class StatusTelemetryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            LayoutBuilder(
-              builder:
-                  (BuildContext context, BoxConstraints headerConstraints) {
-                    final Widget syncButton = TextButton.icon(
+            Row(
+              children: <Widget>[
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Icon(Icons.speed_rounded, color: colorScheme.primary),
+                  ),
+                ),
+                const Flexible(child: SizedBox(width: 8)),
+                Expanded(
+                  flex: 6,
+                  child: Text(
+                    'Live Window Geometry & State Telemetry',
+                    style: textTheme.titleMedium,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+                Flexible(
+                  flex: 5,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
                       onPressed: onSyncState,
                       icon: const Icon(Icons.refresh, size: 16),
                       label: const Text('Sync State'),
-                    );
-                    if (headerConstraints.maxWidth < 480) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Live Window Geometry & State Telemetry',
-                            style: textTheme.titleMedium,
-                          ),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: syncButton,
-                            ),
-                          ),
-                        ],
-                      );
-                    }
-                    return Row(
-                      children: <Widget>[
-                        Icon(Icons.speed_rounded, color: colorScheme.primary),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Live Window Geometry & State Telemetry',
-                            style: textTheme.titleMedium,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-                        syncButton,
-                      ],
-                    );
-                  },
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Wrap(

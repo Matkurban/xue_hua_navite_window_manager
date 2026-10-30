@@ -187,6 +187,32 @@ TEST(XueHuaWindowLogic, ClampSizeHonorsStoredMinimumAndMaximum) {
   EXPECT_EQ(conflict.height, 600);
 }
 
+TEST(XueHuaWindowLogic, GeometryRestorePlanClearsMaximizedAndFullScreen) {
+  const XueHuaGeometryRestorePlan no_geom =
+      xue_hua_plan_geometry_restore(false, true, true, true);
+  EXPECT_FALSE(no_geom.unfullscreen);
+  EXPECT_FALSE(no_geom.unmaximize);
+  EXPECT_FALSE(no_geom.deiconify);
+
+  const XueHuaGeometryRestorePlan normal_win =
+      xue_hua_plan_geometry_restore(true, false, false, false);
+  EXPECT_FALSE(normal_win.unfullscreen);
+  EXPECT_FALSE(normal_win.unmaximize);
+  EXPECT_FALSE(normal_win.deiconify);
+
+  const XueHuaGeometryRestorePlan maximized_win =
+      xue_hua_plan_geometry_restore(true, false, true, false);
+  EXPECT_FALSE(maximized_win.unfullscreen);
+  EXPECT_TRUE(maximized_win.unmaximize);
+  EXPECT_FALSE(maximized_win.deiconify);
+
+  const XueHuaGeometryRestorePlan all_modal =
+      xue_hua_plan_geometry_restore(true, true, true, true);
+  EXPECT_TRUE(all_modal.unfullscreen);
+  EXPECT_TRUE(all_modal.unmaximize);
+  EXPECT_TRUE(all_modal.deiconify);
+}
+
 TEST(XueHuaWindowLogic, CenterPlanMatchesBackendLimits) {
   EXPECT_EQ(xue_hua_plan_center(false, false), XUE_HUA_CENTER_MAP_HINT);
   EXPECT_EQ(xue_hua_plan_center(false, true), XUE_HUA_CENTER_MAP_HINT);

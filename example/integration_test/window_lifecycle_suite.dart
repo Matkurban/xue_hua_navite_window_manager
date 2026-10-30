@@ -204,6 +204,56 @@ void main() {
     );
   });
 
+  windowTest(
+    'configure and setSize while maximized unmaximize cleanly before applying windowed bounds',
+    (WidgetTester tester) async {
+      if (!await ensureWindowSystemHonorsStateChanges()) {
+        return;
+      }
+      final TestSizes metrics = sizes;
+
+      await windowManager.maximize();
+      await waitForState(
+        (WindowStateSnapshot s) => s.isMaximized,
+        reason: 'maximize() before atomic configure()',
+      );
+
+      final WindowStateSnapshot snap = await XueHuaNaviteWindowManager.configure(
+        WindowConfig(
+          size: metrics.smaller,
+          center: true,
+          titleBarStyle: TitleBarStyle.immersive,
+          showWhenReady: true,
+        ),
+      );
+      expect(snap.isMaximized, isFalse);
+      await waitForState(
+        (WindowStateSnapshot s) => !s.isMaximized,
+        reason: 'configure(size:, center: true) to clear isMaximized',
+      );
+      await waitForSize(
+        metrics.smaller,
+        reason: 'configure(size:) after maximize to reach target size',
+      );
+
+      await windowManager.maximize();
+      await waitForState(
+        (WindowStateSnapshot s) => s.isMaximized,
+        reason: 'maximize() before setSize()',
+      );
+
+      await windowManager.setSize(metrics.larger);
+      await waitForState(
+        (WindowStateSnapshot s) => !s.isMaximized,
+        reason: 'setSize() while maximized to clear isMaximized',
+      );
+      await waitForSize(
+        metrics.larger,
+        reason: 'setSize() after maximize to reach target size',
+      );
+    },
+  );
+
   windowTest('setFullScreen enters and leaves native fullscreen', (
     WidgetTester tester,
   ) async {

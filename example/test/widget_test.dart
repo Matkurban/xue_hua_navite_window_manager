@@ -64,4 +64,36 @@ void main() {
       expect(controller.eventLogs, isEmpty);
     },
   );
+
+  testWidgets(
+    'studio semantics tree remains consistent across maximize, compact, normal, and minimize transitions',
+    (WidgetTester tester) async {
+      final SemanticsHandle semantics = tester.ensureSemantics();
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      try {
+        tester.view.physicalSize = const Size(1920, 1080);
+        await tester.pumpWidget(const WindowManagerExampleApp());
+        await tester.pump(null, EnginePhase.sendSemanticsUpdate);
+        expect(tester.takeException(), isNull);
+
+        for (final Size size in const <Size>[
+          Size(980, 660),
+          Size(860, 580),
+          Size(1100, 720),
+          Size(420, 360),
+          Size(159, 27),
+          Size(1280, 820),
+        ]) {
+          tester.view.physicalSize = size;
+          await tester.pump(null, EnginePhase.sendSemanticsUpdate);
+          expect(tester.takeException(), isNull, reason: 'viewport=$size');
+        }
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
 }

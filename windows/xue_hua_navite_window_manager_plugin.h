@@ -12,6 +12,7 @@
 #include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
@@ -89,6 +90,44 @@ inline void ClampDipSize(double min_width,
   if (height != nullptr) {
     *height = ClampDipAxis(*height, min_height, max_height);
   }
+}
+
+/// True when a window must be restored to normal windowed state before applying
+/// explicit windowed geometry (`configure`, `setBounds`, `setSize`,
+/// `setPosition`, `center`).
+///
+/// On Win32, `SetWindowPos` does not clear `WS_MAXIMIZE` or `WS_MINIMIZE`, so
+/// resizing a maximized window leaves `IsZoomed(hwnd)` true and causes
+/// `WM_NCCALCSIZE` / DWM to treat the resized window as maximized.
+inline bool ShouldRestoreWindowBeforeGeometry(bool has_geometry_request,
+                                              bool is_maximized,
+                                              bool is_minimized,
+                                              bool is_fullscreen) {
+  return has_geometry_request && (is_maximized || is_minimized || is_fullscreen);
+}
+
+/// Constrains a maximized custom-frame window's proposed `WM_NCCALCSIZE` screen
+/// rectangle (`rgrc[0]`) to `monitor_work_rect` by intersection rather than raw
+/// replacement.
+///
+/// For a normal maximized Win32 window whose outer rect overshoots the monitor
+/// by the resize border (e.g. `(-8, -8, 1928, 1048)`), the intersection equals
+/// `monitor_work_rect` (`(0, 0, 1920, 1040)`). If `window_rect` is ever smaller
+/// than `monitor_work_rect`, clamping prevents negative client origins and
+/// prevents the client area from exceeding the outer window bounds.
+inline RECT ClampMaximizedClientRect(RECT window_rect, RECT monitor_work_rect) {
+  RECT clamped{};
+  clamped.left = (std::max)(window_rect.left, monitor_work_rect.left);
+  clamped.top = (std::max)(window_rect.top, monitor_work_rect.top);
+  clamped.right = (std::min)(window_rect.right, monitor_work_rect.right);
+  clamped.bottom = (std::min)(window_rect.bottom, monitor_work_rect.bottom);
+  if (clamped.right < clamped.left) {
+    clamped.right = clamped.left;
+  }
+  if (clamped.bottom < clamped.top) {
+    clamped.bottom = clamped.top;
+  }
+  return clamped;
 }
 
 /// Approval state recorded by Windows Task Manager / Settings under
@@ -321,6 +360,9 @@ class XueHuaNaviteWindowManagerPlugin : public flutter::Plugin {
   flutter::EncodableMap ConfigureAtomically(
       HWND hwnd,
       const flutter::EncodableMap& args);
+  void RestoreWindowForGeometry(HWND hwnd);
+  void SyncChildViewSize(HWND hwnd);
+  void FocusFlutterView(HWND hwnd);
   void MarkReadyToShow(HWND hwnd);
   void ApplyTitleBarStyle(HWND hwnd, const std::string& style);
   void ApplyDwmFrameAndCorners(HWND hwnd);
@@ -345,8 +387,10 @@ class XueHuaNaviteWindowManagerPlugin : public flutter::Plugin {
   void ArmSnapButtonPress(HWND hwnd);
   void FinishSnapButtonPress(HWND hwnd);
 
-  // Event emission over EventChannel.
-  void EmitWindowEvent(const std::string& type, HWND hwnd);
+  // Asynchronous EventChannel queueing (flushed at top-level on the Win32
+  // message loop so Dart listeners never run nested inside WndProc / UIA).
+  void QueueWindowEvent(const std::string& type, HWND hwnd);
+  void FlushQueuedWindowEvents();
 
   // Launch-at-startup (login auto-start) helpers.
   flutter::EncodableMap QueryLaunchAtStartupState(
@@ -401,6 +445,10 @@ class XueHuaNaviteWindowManagerPlugin : public flutter::Plugin {
   // Track previous maximize/minimize states for accurate event emission.
   bool was_maximized_ = false;
   bool was_minimized_ = false;
+
+  // Queued EventChannel payloads awaiting top-level message-loop delivery.
+  std::vector<flutter::EncodableMap> pending_events_;
+  bool event_flush_posted_ = false;
 };
 
 }  // namespace xue_hua_navite_window_manager

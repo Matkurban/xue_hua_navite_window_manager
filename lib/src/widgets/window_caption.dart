@@ -69,9 +69,8 @@ class WindowCaption extends StatelessWidget implements PreferredSizeWidget {
         final double barHeight = constraints.maxHeight.isFinite
             ? math.min(height, math.max(0.0, constraints.maxHeight))
             : height;
-        if (barHeight <= 0) {
-          return const SizedBox.shrink();
-        }
+        final bool collapsedHeight = barHeight <= 0;
+        final double effectiveHeight = collapsedHeight ? height : barHeight;
 
         final double width = constraints.maxWidth;
         final bool bounded = width.isFinite;
@@ -100,60 +99,78 @@ class WindowCaption extends StatelessWidget implements PreferredSizeWidget {
         final bool showLeading =
             leading != null &&
             available >= controlsWidth + estimatedActions + 80.0;
-        final bool scaleControls = showControls && available < controlsWidth;
 
         final Widget controls = _WindowCaptionControls(
-          height: barHeight,
+          height: effectiveHeight,
           foregroundColor: fgColor,
         );
 
-        return ColoredBox(
-          color: backgroundColor ?? Colors.transparent,
-          child: SizedBox(
-            height: barHeight,
-            width: bounded ? width : null,
-            child: Row(
-              children: <Widget>[
-                if (macInset > 0) SizedBox(width: macInset),
-                if (showLeading)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8.0),
-                    child: leading!,
-                  ),
-                Expanded(
-                  child: DragArea(
-                    child: ClipRect(
-                      child: DefaultTextStyle(
-                        style:
-                            theme.textTheme.titleSmall?.copyWith(
-                              color: fgColor,
-                              fontWeight: FontWeight.w600,
-                            ) ??
-                            TextStyle(color: fgColor, fontSize: 13),
-                        child: OverflowBox(
-                          alignment: Alignment.centerLeft,
-                          minWidth: 0,
-                          maxWidth: double.infinity,
-                          minHeight: 0,
-                          maxHeight: barHeight,
-                          child: title ?? const SizedBox.shrink(),
+        // Keep an invariant Element / RenderObject / SemanticsNode tree shape
+        // across width & height transitions inside LayoutBuilder so Windows
+        // UIAutomation (`ui::AXTree`) never encounters reparented or orphaned
+        // semantics nodes mid-layout.
+        return Offstage(
+          offstage: collapsedHeight,
+          child: ColoredBox(
+            color: backgroundColor ?? Colors.transparent,
+            child: SizedBox(
+              height: effectiveHeight,
+              width: bounded ? width : null,
+              child: Row(
+                children: <Widget>[
+                  if (isMacOS) SizedBox(width: macInset),
+                  if (leading != null)
+                    Offstage(
+                      offstage: !showLeading,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: leading!,
+                      ),
+                    ),
+                  Expanded(
+                    child: DragArea(
+                      child: ClipRect(
+                        child: DefaultTextStyle(
+                          style:
+                              theme.textTheme.titleSmall?.copyWith(
+                                color: fgColor,
+                                fontWeight: FontWeight.w600,
+                              ) ??
+                              TextStyle(color: fgColor, fontSize: 13),
+                          child: OverflowBox(
+                            alignment: Alignment.centerLeft,
+                            minWidth: 0,
+                            maxWidth: double.infinity,
+                            minHeight: 0,
+                            maxHeight: effectiveHeight,
+                            child: title ?? const SizedBox.shrink(),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                if (showActions) ...actions,
-                if (showControls)
-                  scaleControls
-                      ? Flexible(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerRight,
-                            child: controls,
-                          ),
-                        )
-                      : controls,
-              ],
+                  if (actions.isNotEmpty)
+                    Offstage(
+                      offstage: !showActions,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: actions,
+                      ),
+                    ),
+                  if (showControls)
+                    SizedBox(
+                      width: bounded
+                          ? math.min(controlsWidth, available)
+                          : controlsWidth,
+                      height: effectiveHeight,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: controls,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );

@@ -85,6 +85,45 @@ TEST(SizeClamp, SetSizeHonorsStoredMinimumAndMaximum) {
   EXPECT_DOUBLE_EQ(ClampDipAxis(50.0, 600.0, 80.0), 600.0);
 }
 
+TEST(MaximizedGeometryGuard, RestoresOnlyWhenWindowedGeometryIsRequested) {
+  // Non-geometry configure (e.g. title / preventClose only) keeps maximize/FS.
+  EXPECT_FALSE(ShouldRestoreWindowBeforeGeometry(false, true, false, false));
+  EXPECT_FALSE(ShouldRestoreWindowBeforeGeometry(false, false, true, false));
+  EXPECT_FALSE(ShouldRestoreWindowBeforeGeometry(false, false, false, true));
+
+  // Normal windowed state does not trigger redundant restore.
+  EXPECT_FALSE(ShouldRestoreWindowBeforeGeometry(true, false, false, false));
+
+  // Explicit geometry (size / position / center) restores from maximized,
+  // minimized, or fullscreen before SetWindowPos runs.
+  EXPECT_TRUE(ShouldRestoreWindowBeforeGeometry(true, true, false, false));
+  EXPECT_TRUE(ShouldRestoreWindowBeforeGeometry(true, false, true, false));
+  EXPECT_TRUE(ShouldRestoreWindowBeforeGeometry(true, false, false, true));
+}
+
+TEST(MaximizedGeometryGuard, ClampMaximizedClientRectPreventsNegativeCrop) {
+  const RECT work_area{0, 0, 1920, 1040};
+
+  // Standard maximized Win32 window overshoots work_area by resize border (-8):
+  // clamped client rect matches work_area exactly.
+  const RECT zoomed_outer{-8, -8, 1928, 1048};
+  const RECT zoomed_client = ClampMaximizedClientRect(zoomed_outer, work_area);
+  EXPECT_EQ(zoomed_client.left, 0);
+  EXPECT_EQ(zoomed_client.top, 0);
+  EXPECT_EQ(zoomed_client.right, 1920);
+  EXPECT_EQ(zoomed_client.bottom, 1040);
+
+  // Regression guard for Compact Immersive (980x660 centered at 470, 210):
+  // client rect must never expand to (0, 0, 1920, 1040) and crop top-left UI.
+  const RECT compact_outer{470, 210, 1450, 870};
+  const RECT compact_client =
+      ClampMaximizedClientRect(compact_outer, work_area);
+  EXPECT_EQ(compact_client.left, 470);
+  EXPECT_EQ(compact_client.top, 210);
+  EXPECT_EQ(compact_client.right, 1450);
+  EXPECT_EQ(compact_client.bottom, 870);
+}
+
 TEST(XueHuaNaviteWindowManagerPlugin, EnsureInitializedSucceeds) {
   XueHuaNaviteWindowManagerPlugin plugin;
   bool succeeded = false;
