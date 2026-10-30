@@ -11,10 +11,22 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 # not be changed.
 set(PLUGIN_NAME "xue_hua_navite_window_manager_plugin")
 
-# Any new source files that you add to the plugin should be added here.
+# Modular plugin source files organized in src/
 list(APPEND PLUGIN_SOURCES
-  "xue_hua_navite_window_manager_plugin.cc"
-  "xue_hua_window_logic.cc"
+  "src/fl_value_utils.cc"
+  "src/fl_value_utils.h"
+  "src/window_logic.cc"
+  "src/window_logic.h"
+  "src/launch_at_startup_logic.cc"
+  "src/launch_at_startup_logic.h"
+  "src/launch_at_startup_linux.cc"
+  "src/plugin_internal.h"
+  "src/window_hooks_and_events.cc"
+  "src/window_interactive_drag.cc"
+  "src/window_frame_controller.cc"
+  "src/window_method_dispatcher.cc"
+  "src/xue_hua_navite_window_manager_plugin_private.h"
+  "src/xue_hua_navite_window_manager_plugin.cc"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment
@@ -39,6 +51,8 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
 # dependencies here.
 target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_include_directories(${PLUGIN_NAME} PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter)
 target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
 
@@ -81,11 +95,16 @@ FetchContent_MakeAvailable(googletest)
 # The plugin's exported API is not very useful for unit testing, so build the
 # sources directly into the test binary rather than using the shared library.
 add_executable(${TEST_RUNNER}
-  test/xue_hua_navite_window_manager_plugin_test.cc
+  test/window_logic_test.cc
+  test/launch_at_startup_logic_test.cc
+  test/linux_plugin_lifecycle_test.cc
   ${PLUGIN_SOURCES}
 )
 apply_standard_settings(${TEST_RUNNER})
-target_include_directories(${TEST_RUNNER} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(${TEST_RUNNER} PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
 target_link_libraries(${TEST_RUNNER} PRIVATE flutter)
 target_link_libraries(${TEST_RUNNER} PRIVATE PkgConfig::GTK)
 target_link_libraries(${TEST_RUNNER} PRIVATE gtest_main gmock)

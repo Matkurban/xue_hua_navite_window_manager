@@ -134,95 +134,6 @@ enum XueHuaLaunchAtStartup {
         }
     }
 
-    /// Builds a `launchd.plist(5)` dictionary for a GUI user `LaunchAgent`.
-    static func buildLaunchAgentPlistDictionary(
-        label: String,
-        executablePath: String,
-        arguments: [String]
-    ) -> [String: Any] {
-        var programArguments = [executablePath]
-        programArguments.append(contentsOf: arguments)
-        return [
-            "Label": label,
-            "ProgramArguments": programArguments,
-            "RunAtLoad": true,
-            "ProcessType": "Interactive",
-        ]
-    }
-
-    /// Serializes a `LaunchAgent` dictionary into XML property list bytes.
-    static func serializeLaunchAgentPlist(
-        label: String,
-        executablePath: String,
-        arguments: [String]
-    ) throws -> Data {
-        let plist = buildLaunchAgentPlistDictionary(
-            label: label,
-            executablePath: executablePath,
-            arguments: arguments
-        )
-        return try PropertyListSerialization.data(
-            fromPropertyList: plist,
-            format: .xml,
-            options: 0
-        )
-    }
-
-    /// Evaluates raw XML/binary `.plist` bytes from `~/Library/LaunchAgents`.
-    static func evaluateLaunchAgentPlistData(
-        _ data: Data?
-    ) -> (status: String, executablePath: String?) {
-        guard let data = data, !data.isEmpty else {
-            return ("disabled", nil)
-        }
-        guard let rawPlist = try? PropertyListSerialization.propertyList(
-            from: data,
-            options: [],
-            format: nil
-        ),
-            let dict = rawPlist as? [String: Any]
-        else {
-            return ("disabled", nil)
-        }
-
-        let programArgs = dict["ProgramArguments"] as? [String]
-        let programPath = programArgs?.first ?? (dict["Program"] as? String)
-        guard let resolvedProgram = programPath, !resolvedProgram.isEmpty else {
-            return ("disabled", nil)
-        }
-
-        if (dict["Disabled"] as? Bool) == true {
-            return ("disabledByUser", resolvedProgram)
-        }
-        if let runAtLoad = dict["RunAtLoad"] as? Bool, !runAtLoad {
-            return ("disabled", resolvedProgram)
-        }
-        return ("enabled", resolvedProgram)
-    }
-
-    @available(macOS 13.0, *)
-    static func mapAppServiceStatus(
-        _ status: SMAppService.Status,
-        isBundledApp: Bool
-    ) -> (isSupported: Bool, status: String) {
-        guard isBundledApp else {
-            return (false, "unsupported")
-        }
-        switch status {
-        case .enabled:
-            return (true, "enabled")
-        case .notRegistered:
-            return (true, "disabled")
-        case .requiresApproval:
-            return (true, "requiresApproval")
-        case .notFound:
-            // macOS BTM commonly reports .notFound before the very first registration.
-            return (true, "disabled")
-        @unknown default:
-            return (true, "disabled")
-        }
-    }
-
     // MARK: - State Dictionary Builder
 
     static func makeStateMap(
@@ -247,82 +158,6 @@ enum XueHuaLaunchAtStartup {
             map["executablePath"] = executablePath
         }
         return map
-    }
-
-    // MARK: - LaunchAgent File Operations
-
-    static func defaultLaunchAgentsDirectory() -> URL {
-        return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("LaunchAgents", isDirectory: true)
-    }
-
-    static func launchAgentFileURL(
-        identifier: String,
-        directory: URL? = nil
-    ) -> URL {
-        let dir = directory ?? defaultLaunchAgentsDirectory()
-        return dir.appendingPathComponent("\(identifier).plist", isDirectory: false)
-    }
-
-    static func queryLaunchAgentState(
-        identifier: String,
-        fallbackExecutablePath: String?,
-        launchAgentsDirectory: URL? = nil,
-        canOpenSettings: Bool = true
-    ) -> [String: Any] {
-        let fileURL = launchAgentFileURL(identifier: identifier, directory: launchAgentsDirectory)
-        let data = try? Data(contentsOf: fileURL)
-        let evaluated = evaluateLaunchAgentPlistData(data)
-        return makeStateMap(
-            isSupported: true,
-            status: evaluated.status,
-            backend: .launchAgent,
-            identifier: identifier,
-            executablePath: evaluated.executablePath ?? fallbackExecutablePath,
-            canOpenSettings: canOpenSettings
-        )
-    }
-
-    static func setLaunchAgentEnabled(
-        _ enabled: Bool,
-        identifier: String,
-        executablePath: String?,
-        arguments: [String],
-        launchAgentsDirectory: URL? = nil,
-        canOpenSettings: Bool = true
-    ) throws -> [String: Any] {
-        let dir = launchAgentsDirectory ?? defaultLaunchAgentsDirectory()
-        let fileURL = launchAgentFileURL(identifier: identifier, directory: dir)
-        let fm = FileManager.default
-
-        if enabled {
-            guard let exe = executablePath, !exe.isEmpty else {
-                throw NSError(
-                    domain: "XueHuaLaunchAtStartup",
-                    code: 2,
-                    userInfo: [NSLocalizedDescriptionKey: "Unable to resolve application executable path for LaunchAgent."]
-                )
-            }
-            try fm.createDirectory(at: dir, withIntermediateDirectories: true, attributes: nil)
-            let data = try serializeLaunchAgentPlist(
-                label: identifier,
-                executablePath: exe,
-                arguments: arguments
-            )
-            try data.write(to: fileURL, options: .atomic)
-        } else {
-            if fm.fileExists(atPath: fileURL.path) {
-                try fm.removeItem(at: fileURL)
-            }
-        }
-
-        return queryLaunchAgentState(
-            identifier: identifier,
-            fallbackExecutablePath: executablePath,
-            launchAgentsDirectory: dir,
-            canOpenSettings: canOpenSettings
-        )
     }
 
     // MARK: - MethodChannel Entry Points
@@ -359,26 +194,11 @@ enum XueHuaLaunchAtStartup {
         switch backend {
         case .appService:
             if #available(macOS 13.0, *) {
-                let bundled = isBundledApplication()
-                let mapped = mapAppServiceStatus(SMAppService.mainApp.status, isBundledApp: bundled)
-                // In automatic unsandboxed mode, if SMAppService is not registered, also check
-                // whether a user LaunchAgent plist already exists for this identifier.
-                if requestedMode == .automatic, !sandboxed, mapped.status == "disabled" {
-                    let plistURL = launchAgentFileURL(identifier: identifier)
-                    if FileManager.default.fileExists(atPath: plistURL.path) {
-                        return queryLaunchAgentState(
-                            identifier: identifier,
-                            fallbackExecutablePath: executablePath
-                        )
-                    }
-                }
-                return makeStateMap(
-                    isSupported: mapped.isSupported,
-                    status: mapped.status,
-                    backend: .appService,
-                    identifier: Bundle.main.bundleIdentifier ?? identifier,
-                    executablePath: Bundle.main.executablePath ?? executablePath,
-                    canOpenSettings: true
+                return queryAppServiceState(
+                    requestedMode: requestedMode,
+                    sandboxed: sandboxed,
+                    identifier: identifier,
+                    executablePath: executablePath
                 )
             } else {
                 return makeStateMap(
@@ -461,75 +281,13 @@ enum XueHuaLaunchAtStartup {
                 )
                 return
             }
-            guard isBundledApplication() else {
-                result(
-                    FlutterError(
-                        code: "UNSUPPORTED",
-                        message: "SMAppService.mainApp requires a bundled .app application.",
-                        details: nil
-                    )
-                )
-                return
-            }
-
-            let service = SMAppService.mainApp
-            do {
-                if enabled {
-                    if service.status != .enabled {
-                        try service.register()
-                    }
-                } else {
-                    if service.status == .enabled || service.status == .requiresApproval {
-                        try service.unregister()
-                    }
-                    // In automatic unsandboxed mode, also remove any stale LaunchAgent plist.
-                    if requestedMode == .automatic, !sandboxed {
-                        let plistURL = launchAgentFileURL(identifier: identifier)
-                        if FileManager.default.fileExists(atPath: plistURL.path) {
-                            try? FileManager.default.removeItem(at: plistURL)
-                        }
-                    }
-                }
-            } catch let error as NSError {
-                let currentStatus = service.status
-                if enabled, currentStatus == .enabled || currentStatus == .requiresApproval || error.code == Int(kSMErrorAlreadyRegistered) {
-                    // Registration took effect or awaits user approval in System Settings.
-                } else if enabled, error.code == Int(kSMErrorLaunchDeniedByUser) {
-                    result(
-                        makeStateMap(
-                            isSupported: true,
-                            status: "disabledByUser",
-                            backend: .appService,
-                            identifier: Bundle.main.bundleIdentifier ?? identifier,
-                            executablePath: Bundle.main.executablePath ?? executablePath,
-                            canOpenSettings: true
-                        )
-                    )
-                    return
-                } else if !enabled, currentStatus == .notRegistered || currentStatus == .notFound || error.code == Int(kSMErrorJobNotFound) {
-                    // Already unregistered — idempotent success.
-                } else {
-                    result(
-                        FlutterError(
-                            code: "LAUNCH_AT_STARTUP_FAILED",
-                            message: error.localizedDescription,
-                            details: error.code
-                        )
-                    )
-                    return
-                }
-            }
-
-            let mapped = mapAppServiceStatus(service.status, isBundledApp: true)
-            result(
-                makeStateMap(
-                    isSupported: mapped.isSupported,
-                    status: mapped.status,
-                    backend: .appService,
-                    identifier: Bundle.main.bundleIdentifier ?? identifier,
-                    executablePath: Bundle.main.executablePath ?? executablePath,
-                    canOpenSettings: true
-                )
+            setAppServiceEnabled(
+                enabled,
+                requestedMode: requestedMode,
+                sandboxed: sandboxed,
+                identifier: identifier,
+                executablePath: executablePath,
+                result: result
             )
 
         case .launchAgent:

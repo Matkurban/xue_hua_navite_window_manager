@@ -1,3 +1,6 @@
+#ifndef XUE_HUA_NAVITE_WINDOW_MANAGER_PLUGIN_PRIVATE_H_
+#define XUE_HUA_NAVITE_WINDOW_MANAGER_PLUGIN_PRIVATE_H_
+
 #include <flutter_linux/flutter_linux.h>
 
 #include "include/xue_hua_navite_window_manager/xue_hua_navite_window_manager_plugin.h"
@@ -16,3 +19,5 @@ FlMethodResponse* xue_hua_navite_window_manager_handle_set_launch_at_startup(
 
 FlMethodResponse*
 xue_hua_navite_window_manager_handle_open_launch_at_startup_settings();
+
+#endif  // XUE_HUA_NAVITE_WINDOW_MANAGER_PLUGIN_PRIVATE_H_

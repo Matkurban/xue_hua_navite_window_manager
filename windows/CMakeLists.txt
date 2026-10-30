@@ -22,15 +22,23 @@ set(PLUGIN_NAME "xue_hua_navite_window_manager_plugin")
 
 # Any new source files that you add to the plugin should be added here.
 list(APPEND PLUGIN_SOURCES
-  "xue_hua_navite_window_manager_plugin.cpp"
-  "xue_hua_navite_window_manager_plugin.h"
+  "src/launch_at_startup_logic.h"
+  "src/launch_at_startup_windows.cpp"
+  "src/method_call_utils.h"
+  "src/method_call_utils.cpp"
+  "src/window_frame_controller.cpp"
+  "src/window_geometry_logic.h"
+  "src/window_message_handler.cpp"
+  "src/window_method_dispatcher.cpp"
+  "src/xue_hua_navite_window_manager_plugin.h"
+  "src/xue_hua_navite_window_manager_plugin.cpp"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment
 # on PLUGIN_NAME above).
 add_library(${PLUGIN_NAME} SHARED
   "include/xue_hua_navite_window_manager/xue_hua_navite_window_manager_plugin_c_api.h"
-  "xue_hua_navite_window_manager_plugin_c_api.cpp"
+  "src/xue_hua_navite_window_manager_plugin_c_api.cpp"
   ${PLUGIN_SOURCES}
 )
 
@@ -51,6 +59,8 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE UNICODE _UNICODE NOMINMAX)
 # Links dwmapi (DWM rounded corners & shadows) and comctl32 (SetWindowSubclass).
 target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_include_directories(${PLUGIN_NAME} PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(${PLUGIN_NAME} PRIVATE
   flutter
   flutter_wrapper_plugin
@@ -85,12 +95,17 @@ set(INSTALL_GTEST OFF CACHE BOOL "Disable installation of googletest" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 add_executable(${TEST_RUNNER}
-  test/xue_hua_navite_window_manager_plugin_test.cpp
+  test/window_geometry_logic_test.cpp
+  test/launch_at_startup_windows_test.cpp
+  test/window_plugin_smoke_test.cpp
   ${PLUGIN_SOURCES}
 )
 apply_standard_settings(${TEST_RUNNER})
 target_compile_definitions(${TEST_RUNNER} PRIVATE UNICODE _UNICODE NOMINMAX)
-target_include_directories(${TEST_RUNNER} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(${TEST_RUNNER} PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/include"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
 target_link_libraries(${TEST_RUNNER} PRIVATE
   flutter_wrapper_plugin
   advapi32
