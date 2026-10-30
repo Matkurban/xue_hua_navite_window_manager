@@ -191,8 +191,8 @@ class _WindowStudioDashboardState extends State<WindowStudioDashboard> {
                                       isBusy: _controller.startupBusy,
                                       onToggleEnabled:
                                           _controller.toggleLaunchAtStartup,
-                                      onPassMinimizedArgChanged:
-                                          _controller.setStartupPassMinimizedArg,
+                                      onPassMinimizedArgChanged: _controller
+                                          .setStartupPassMinimizedArg,
                                       onRefresh: _controller
                                           .refreshLaunchAtStartupState,
                                       onOpenSettings: _controller

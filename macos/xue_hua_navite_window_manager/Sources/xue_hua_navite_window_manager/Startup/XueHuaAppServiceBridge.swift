@@ -1,11 +1,11 @@
-import Foundation
 import FlutterMacOS
+import Foundation
 import ServiceManagement
 
+@available(macOS 13.0, *)
 extension XueHuaLaunchAtStartup {
     // MARK: - SMAppService.mainApp Bridge (`macOS 13.0+`)
 
-    @available(macOS 13.0, *)
     static func mapAppServiceStatus(
         _ status: SMAppService.Status,
         isBundledApp: Bool
@@ -28,7 +28,6 @@ extension XueHuaLaunchAtStartup {
         }
     }
 
-    @available(macOS 13.0, *)
     static func queryAppServiceState(
         requestedMode: RequestedMode,
         sandboxed: Bool,
@@ -58,7 +57,6 @@ extension XueHuaLaunchAtStartup {
         )
     }
 
-    @available(macOS 13.0, *)
     static func setAppServiceEnabled(
         _ enabled: Bool,
         requestedMode: RequestedMode,

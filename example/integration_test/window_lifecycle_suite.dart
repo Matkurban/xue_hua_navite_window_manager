@@ -218,14 +218,15 @@ void main() {
         reason: 'maximize() before atomic configure()',
       );
 
-      final WindowStateSnapshot snap = await XueHuaNaviteWindowManager.configure(
-        WindowConfig(
-          size: metrics.smaller,
-          center: true,
-          titleBarStyle: TitleBarStyle.immersive,
-          showWhenReady: true,
-        ),
-      );
+      final WindowStateSnapshot snap =
+          await XueHuaNaviteWindowManager.configure(
+            WindowConfig(
+              size: metrics.smaller,
+              center: true,
+              titleBarStyle: TitleBarStyle.immersive,
+              showWhenReady: true,
+            ),
+          );
       expect(snap.isMaximized, isFalse);
       await waitForState(
         (WindowStateSnapshot s) => !s.isMaximized,

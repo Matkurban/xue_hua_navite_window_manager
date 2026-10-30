@@ -41,7 +41,10 @@ class StatusTelemetryCard extends StatelessWidget {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-                    child: Icon(Icons.speed_rounded, color: colorScheme.primary),
+                    child: Icon(
+                      Icons.speed_rounded,
+                      color: colorScheme.primary,
+                    ),
                   ),
                 ),
                 const Flexible(child: SizedBox(width: 8)),

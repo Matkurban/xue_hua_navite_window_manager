@@ -41,15 +41,13 @@ extension XueHuaLaunchAtStartup {
     static func evaluateLaunchAgentPlistData(
         _ data: Data?
     ) -> (status: String, executablePath: String?) {
-        guard let data = data, !data.isEmpty else {
-            return ("disabled", nil)
-        }
-        guard let rawPlist = try? PropertyListSerialization.propertyList(
-            from: data,
-            options: [],
-            format: nil
-        ),
-            let dict = rawPlist as? [String: Any]
+        guard let data = data, !data.isEmpty,
+              let rawPlist = try? PropertyListSerialization.propertyList(
+                  from: data,
+                  options: [],
+                  format: nil
+              ),
+              let dict = rawPlist as? [String: Any]
         else {
             return ("disabled", nil)
         }

@@ -10,7 +10,7 @@ enum XueHuaLaunchAtStartup {
     enum BackendKind: String {
         case appService = "macosAppService"
         case launchAgent = "macosLaunchAgent"
-        case none = "none"
+        case none
     }
 
     enum RequestedMode: String {
@@ -35,8 +35,12 @@ enum XueHuaLaunchAtStartup {
         }
         let filtered = cleaned.unicodeScalars.filter { scalar in
             let v = scalar.value
-            if v < 32 || v == 127 { return false }
-            if scalar == "/" || scalar == "\\" { return false }
+            if v < 32 || v == 127 {
+                return false
+            }
+            if scalar == "/" || scalar == "\\" {
+                return false
+            }
             return true
         }
         var result = String(String.UnicodeScalarView(filtered))
